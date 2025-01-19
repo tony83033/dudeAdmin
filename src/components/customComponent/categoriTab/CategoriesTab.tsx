@@ -1,57 +1,110 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 type Category = {
-  id: number
+  categoryId: number
   name: string
+  imageUrl: string
+  createdAt: Date
+  updatedAt: Date
 }
 
 export function CategoriesTab() {
   const [categories, setCategories] = useState<Category[]>([
-    { id: 1, name: 'Electronics' },
-    { id: 2, name: 'Clothing' },
-    { id: 3, name: 'Books' },
+    {
+      categoryId: 1,
+      name: "Electronics",
+      imageUrl: "https://example.com/electronics.jpg",
+      createdAt: new Date("2023-01-01"),
+      updatedAt: new Date("2023-01-01"),
+    },
+    {
+      categoryId: 2,
+      name: "Clothing",
+      imageUrl: "https://example.com/clothing.jpg",
+      createdAt: new Date("2023-02-15"),
+      updatedAt: new Date("2023-02-15"),
+    },
+    {
+      categoryId: 3,
+      name: "Books",
+      imageUrl: "https://example.com/books.jpg",
+      createdAt: new Date("2023-03-10"),
+      updatedAt: new Date("2023-03-10"),
+    },
   ])
-  const [newCategory, setNewCategory] = useState('')
+
+  const [newCategory, setNewCategory] = useState<Omit<Category, "categoryId" | "createdAt" | "updatedAt">>({
+    name: "",
+    imageUrl: "",
+  })
 
   const handleAddCategory = () => {
-    if (newCategory.trim() !== '') {
-      setCategories([...categories, { id: categories.length + 1, name: newCategory }])
-      setNewCategory('')
+    if (newCategory.name.trim() !== "") {
+      const now = new Date()
+      setCategories([
+        ...categories,
+        {
+          categoryId: categories.length + 1,
+          ...newCategory,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ])
+      setNewCategory({ name: "", imageUrl: "" })
     }
   }
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Categories</h2>
-      <div className="flex gap-2 mb-4">
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold">Categories</h2>
+      <div className="flex gap-2">
         <Input
-          placeholder="New category name"
-          value={newCategory}
-          onChange={(e) => setNewCategory(e.target.value)}
+          placeholder="Category name"
+          value={newCategory.name}
+          onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+        />
+        <Input
+          placeholder="Image URL"
+          value={newCategory.imageUrl}
+          onChange={(e) => setNewCategory({ ...newCategory, imageUrl: e.target.value })}
         />
         <Button onClick={handleAddCategory}>Add Category</Button>
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>ID</TableHead>
-            <TableHead>Name</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {categories.map((category) => (
-            <TableRow key={category.id}>
-              <TableCell>{category.id}</TableCell>
-              <TableCell>{category.name}</TableCell>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Image</TableHead>
+              <TableHead>Created At</TableHead>
+              <TableHead>Updated At</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {categories.map((category) => (
+              <TableRow key={category.categoryId}>
+                <TableCell>{category.categoryId}</TableCell>
+                <TableCell>{category.name}</TableCell>
+                <TableCell>
+                  <img
+                    src={category.imageUrl || "/placeholder.svg"}
+                    alt={category.name}
+                    className="w-10 h-10 object-cover"
+                  />
+                </TableCell>
+                <TableCell>{category.createdAt.toLocaleString()}</TableCell>
+                <TableCell>{category.updatedAt.toLocaleString()}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }
