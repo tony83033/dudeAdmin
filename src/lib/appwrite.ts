@@ -1,0 +1,26 @@
+import { Client,Account,Databases } from 'appwrite';
+
+
+export const appwriteConfig = {
+    endpoint: "https://cloud.appwrite.io/v1",
+    platform: "com.dude",
+    projectId: "6780e3ff00052183da93",
+    databaseId: "67811767003984166d8d",
+    userCollectionId: "678117b5003d84901e25",
+    productscollectionId: "67841fbe001f1492ed9b",
+    addressesCollectionId: "678425cb00065ae8f6e4",
+    categoriesCollectionId: "6784211500075796cdb3",
+    orderItemsCollectionId: "6784253f003cb6ca9b36",
+    ordersCollectionId: "678422cc000435240434",
+    reviewsCollectionId: "67842677000e2ff86cd8",
+    topCategoriesCollectionId: "6784f04b001d5ad03d85",
+    cartsCollectionId: "6787910e000842462c22",
+
+  };
+const client = new Client();
+client.setProject(appwriteConfig.projectId)
+client.setEndpoint(appwriteConfig.endpoint)
+
+export const account = new Account(client);
+
+export const databases = new Databases(client);
