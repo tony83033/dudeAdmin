@@ -1,4 +1,5 @@
-import { Client,Account,Databases } from 'appwrite';
+//src/lib/appwrit.ts
+import { Client,Account,Databases,Storage } from 'appwrite';
 
 
 export const appwriteConfig = {
@@ -15,6 +16,8 @@ export const appwriteConfig = {
     reviewsCollectionId: "67842677000e2ff86cd8",
     topCategoriesCollectionId: "6784f04b001d5ad03d85",
     cartsCollectionId: "6787910e000842462c22",
+    imagesCollectionId:"679aac1c0030e98d1537",
+    imageBucketId:"679a93ca0015bbc8a2db"
 
   };
 const client = new Client();
@@ -22,5 +25,5 @@ client.setProject(appwriteConfig.projectId)
 client.setEndpoint(appwriteConfig.endpoint)
 
 export const account = new Account(client);
-
+export const storage = new Storage(client);
 export const databases = new Databases(client);

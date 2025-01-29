@@ -1,24 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { fetchProducts } from "@/lib/product/ProductFun";
+import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton component
+import { fetchProducts, addProduct, fetchCategories, deleteProduct } from "@/lib/product/ProductFun";
 import { Product } from "@/types/ProductTypes";
+import { Category } from "@/types/CategoryTypes";
+import toast, { Toaster } from "react-hot-toast";
 
 export function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [newProduct, setNewProduct] = useState<Product>({
-    $collectionId: "",
-    $createdAt: "",
-    $databaseId: "",
-    $id: "",
-    $permissions: [],
-    $updatedAt: "",
+  const [newProduct, setNewProduct] = useState<Omit<Product, "$id" | "$collectionId" | "$databaseId" | "$createdAt" | "$updatedAt" | "$permissions">>({
     categoryId: "",
     createdAt: "",
     description: "",
@@ -32,47 +29,164 @@ export function ProductsTab() {
     stock: 0,
     updatedAt: "",
   });
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const categories = ["Electronics", "Clothing", "Books"];
+  // Create a map of categories for faster lookup
+  const categoryMap = new Map(categories.map((cat) => [cat.$id, cat.name]));
 
-  const handleAddProduct = () => {
-    const productId = Math.random().toString(36).substring(2, 9);
-    setProducts([
-      ...products,
-      {
+  const loadProducts = async () => {
+    try {
+      setIsLoading(true);
+      const data = await fetchProducts();
+      setProducts(data);
+      setError(null);
+      toast.success("Products fetched successfully!");
+    } catch (err) {
+      console.error("Failed to fetch products:", err);
+      setError("Failed to fetch products. Please try again later.");
+      toast.error("Failed to fetch products. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      setIsCategoriesLoading(true);
+      const data = await fetchCategories();
+      setCategories(data);
+      toast.success("Categories fetched successfully!");
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+      toast.error("Failed to fetch categories. Please try again later.");
+    } finally {
+      setIsCategoriesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProducts();
+    loadCategories();
+  }, []);
+
+  const handleAddProduct = async () => {
+    try {
+      // Validate required fields
+      if (!newProduct.name || !newProduct.price || !newProduct.categoryId) {
+        toast.error("Please fill in all required fields.");
+        return;
+      }
+
+      // Add the product to the Appwrite database
+      const createdProduct = await addProduct({
         ...newProduct,
-        $id: productId,
-        productId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      },
-    ]);
-    setNewProduct({
-      $collectionId: "",
-      $createdAt: "",
-      $databaseId: "",
-      $id: "",
-      $permissions: [],
-      $updatedAt: "",
-      categoryId: "",
-      createdAt: "",
-      description: "",
-      discount: null,
-      imageUrl: "",
-      isFeatured: false,
-      mrp: null,
-      name: "",
-      price: 0,
-      productId: "",
-      stock: 0,
-      updatedAt: "",
-    });
+      });
+
+      // Update the local state with the new product
+      setProducts([...products, createdProduct]);
+
+      // Reset the form
+      setNewProduct({
+        categoryId: "",
+        createdAt: "",
+        description: "",
+        discount: null,
+        imageUrl: "",
+        isFeatured: false,
+        mrp: null,
+        name: "",
+        price: 0,
+        productId: "",
+        stock: 0,
+        updatedAt: "",
+      });
+
+      toast.success("Product added successfully!");
+    } catch (error) {
+      console.error("Failed to add product:", error);
+      toast.error("Failed to add product. Please try again.");
+    }
   };
+
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      await deleteProduct(productId); // Delete the product from the database
+      setProducts(products.filter((product) => product.$id !== productId)); // Update the UI
+      toast.success("Product deleted successfully!");
+    } catch (error) {
+      console.error("Failed to delete product:", error);
+      toast.error("Failed to delete product. Please try again.");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">Products</h2>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead>MRP</TableHead>
+                <TableHead>Discount</TableHead>
+                <TableHead>Image</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Featured</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-10 w-10 rounded-md" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                  <TableCell><Skeleton className="h-10 w-[100px]" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="text-red-500">{error}</div>;
+  }
 
   return (
     <div className="space-y-4">
+      {/* Add Toaster component for toast notifications */}
+      <Toaster position="top-right" />
+
       <h2 className="text-2xl font-bold">Products</h2>
+      <Button onClick={loadProducts} className="mb-4">
+        Refresh Products
+      </Button>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Input fields for adding a new product */}
         <Input
           placeholder="Product name"
           value={newProduct.name}
@@ -130,11 +244,17 @@ export function ProductsTab() {
             <SelectValue placeholder="Select category" />
           </SelectTrigger>
           <SelectContent>
-            {categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
+            {isCategoriesLoading ? (
+              <SelectItem value="loading" disabled>
+                Loading categories...
               </SelectItem>
-            ))}
+            ) : (
+              categories.map((category) => (
+                <SelectItem key={category.$id} value={category.$id}>
+                  {category.name}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -157,6 +277,7 @@ export function ProductsTab() {
               <TableHead>Category</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Updated</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -177,9 +298,17 @@ export function ProductsTab() {
                 </TableCell>
                 <TableCell>{product.stock}</TableCell>
                 <TableCell>{product.isFeatured ? "Yes" : "No"}</TableCell>
-                <TableCell>{product.categoryId}</TableCell>
+                <TableCell>{categoryMap.get(product.categoryId) || "Unknown"}</TableCell>
                 <TableCell>{new Date(product.createdAt).toLocaleDateString()}</TableCell>
                 <TableCell>{new Date(product.updatedAt).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleDeleteProduct(product.$id)}
+                  >
+                    Delete
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -1,5 +1,9 @@
+// src/lib/product/ProductFun.ts
 import {databases,appwriteConfig} from "@/lib/appwrite"
 import { Product } from "@/types/ProductTypes";
+import { ID ,Query} from 'appwrite'; 
+import { Category } from "@/types/CategoryTypes";
+
 export async function fetchProducts(): Promise<Product[]> {
     try {
       const response = await databases.listDocuments(
@@ -36,3 +40,95 @@ export async function fetchProducts(): Promise<Product[]> {
       return []; // Return an empty array in case of error
     }
   }
+
+ /**
+ * Adds a new product to the Appwrite database.
+ * @param product - The product data to add.
+ * @returns The created product document.
+ */
+ export async function addProduct(product: Omit<Product, "$id" | "$collectionId" | "$databaseId" | "$createdAt" | "$updatedAt" | "$permissions">): Promise<Product> {
+  try {
+    const response = await databases.createDocument(
+      appwriteConfig.databaseId, // Database ID
+      appwriteConfig.productscollectionId, // Collection ID
+      ID.unique(), // Auto-generate a unique document ID
+      product // Product data
+    );
+
+    // Map the response to the Product type
+    const createdProduct: Product = {
+      $collectionId: response.$collectionId,
+      $createdAt: response.$createdAt,
+      $databaseId: response.$databaseId,
+      $id: response.$id,
+      $permissions: response.$permissions,
+      $updatedAt: response.$updatedAt,
+      categoryId: response.categoryId,
+      createdAt: response.createdAt,
+      description: response.description,
+      discount: response.discount,
+      imageUrl: response.imageUrl,
+      isFeatured: response.isFeatured,
+      mrp: response.mrp,
+      name: response.name,
+      price: response.price,
+      productId: response.productId,
+      stock: response.stock,
+      updatedAt: response.updatedAt,
+    };
+
+    return createdProduct;
+  } catch (error) {
+    console.error("Error adding product:", error);
+    throw new Error("Failed to add product. Please try again.");
+  }
+}
+
+
+
+
+/**
+ * Fetches categories from the Appwrite database.
+ * This function is to fetchthe categories Id  and then render it on Product ui, it help in function of addProduct to select category from dropdown menue
+ * @returns An array of categories.
+ */
+export async function fetchCategories(): Promise<Category[]> {
+  try {
+    const response = await databases.listDocuments(
+      appwriteConfig.databaseId, // Database ID
+      appwriteConfig.categoriesCollectionId // Collection ID for categories
+    );
+
+    // Map the response to the Category type
+    const categories: Category[] = response.documents.map((doc) => ({
+      $id: doc.$id,
+      name: doc.name,
+      imageUrl: doc.imageUrl,
+      categoryId: doc.categoryId,
+      createdAt: new Date(doc.$createdAt),
+      updatedAt: new Date(doc.$updatedAt),
+    }));
+
+    return categories;
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    throw new Error("Failed to fetch categories. Please try again.");
+  }
+}
+
+/**
+ * Deletes a product from the Appwrite database.
+ * @param productId - The ID of the product to delete.
+ */
+export async function deleteProduct(productId: string): Promise<void> {
+  try {
+    await databases.deleteDocument(
+      appwriteConfig.databaseId, // Database ID
+      appwriteConfig.productscollectionId, // Collection ID
+      productId // Product ID
+    );
+  } catch (error) {
+    console.error("Error deleting product: in backend", error);
+    throw new Error("Failed to delete product. Please try again.");
+  }
+}

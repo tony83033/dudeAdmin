@@ -6,7 +6,7 @@ import { ProductsTab } from '../categoriTab/ProductsTab'
 import { CategoriesTab } from '../categoriTab/CategoriesTab'
 import { UsersTab } from '../categoriTab/UsersTab'
 import { TopCategoriesTab } from '../categoriTab/TopCategoriesTab'
-
+import { ImagesTab } from '../categoriTab/ImagesTab'
 export default function AdminHome() {
   return (
     <div className="container mx-auto p-4">
@@ -17,6 +17,7 @@ export default function AdminHome() {
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="top-categories">Top Categories</TabsTrigger>
+          <TabsTrigger value="images">Images</TabsTrigger>
         </TabsList>
         <TabsContent value="products">
           <ProductsTab />
@@ -29,6 +30,9 @@ export default function AdminHome() {
         </TabsContent>
         <TabsContent value="top-categories">
           <TopCategoriesTab />
+        </TabsContent>
+        <TabsContent value="images">
+          <ImagesTab />
         </TabsContent>
       </Tabs>
     </div>
