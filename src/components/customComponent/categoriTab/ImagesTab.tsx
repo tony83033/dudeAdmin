@@ -8,12 +8,14 @@ import { Copy, Trash } from "lucide-react";
 import { fetchImages, deleteImage, uploadImage } from '@/lib/Images/ImagesFun';
 import { Image } from '@/types/ImageTypes'; // Import Image type
 import toast, { Toaster } from 'react-hot-toast';
+import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton component
 
 export function ImagesTab() {
   const [images, setImages] = useState<Image[]>([]); // Initialize as Image[]
   const [name, setName] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Add loading state
 
   // Fetch images on mount
   useEffect(() => {
@@ -24,6 +26,8 @@ export function ImagesTab() {
         toast.success('Images fetched successfully!');
       } catch (error) {
         toast.error('Failed to fetch images');
+      } finally {
+        setIsLoading(false); // Set loading to false after fetch
       }
     };
     getImages();
@@ -98,6 +102,30 @@ export function ImagesTab() {
     }).format(date);
   };
 
+  // Skeleton Loader for Table Rows
+  const TableSkeleton = () => {
+    return (
+      <>
+        {Array.from({ length: 5 }).map((_, index) => (
+          <TableRow key={index}>
+            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+            <TableCell><Skeleton className="h-10 w-10 rounded-md" /></TableCell>
+            <TableCell>
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-4 w-[200px]" />
+                <Skeleton className="h-8 w-8 rounded-md" />
+              </div>
+            </TableCell>
+            <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+            <TableCell><Skeleton className="h-8 w-[100px]" /></TableCell>
+          </TableRow>
+        ))}
+      </>
+    );
+  };
+
   return (
     <div>
       {/* Add Toaster component for toast notifications */}
@@ -139,44 +167,48 @@ export function ImagesTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {images.map((image) => (
-            <TableRow key={image.$id}>
-              <TableCell>{image.$id}</TableCell>
-              <TableCell>{image.name}</TableCell>
-              <TableCell>
-                <img
-                  src={image.imageUrl}
-                  alt={image.name}
-                  className="w-10 h-10 rounded-md object-cover"
-                />
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">{image.imageUrl}</span>
+          {isLoading ? (
+            <TableSkeleton /> // Show skeleton loader while loading
+          ) : (
+            images.map((image) => (
+              <TableRow key={image.$id}>
+                <TableCell>{image.$id}</TableCell>
+                <TableCell>{image.name}</TableCell>
+                <TableCell>
+                  <img
+                    src={image.imageUrl}
+                    alt={image.name}
+                    className="w-10 h-10 rounded-md object-cover"
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">{image.imageUrl}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(image.imageUrl)}
+                      className="p-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+                <TableCell>{formatDate(new Date(image.createdAt))}</TableCell>
+                <TableCell>{formatDate(new Date(image.updatedAt))}</TableCell>
+                <TableCell>
                   <Button
-                    variant="outline"
+                    variant="destructive"
                     size="sm"
-                    onClick={() => copyToClipboard(image.imageUrl)}
+                    onClick={() => handleDelete(image.$id)}
                     className="p-2"
                   >
-                    <Copy className="h-4 w-4" />
+                    <Trash className="h-4 w-4" />
                   </Button>
-                </div>
-              </TableCell>
-              <TableCell>{formatDate(new Date(image.createdAt))}</TableCell>
-              <TableCell>{formatDate(new Date(image.updatedAt))}</TableCell>
-              <TableCell>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDelete(image.$id)}
-                  className="p-2"
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
     </div>
