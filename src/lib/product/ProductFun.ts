@@ -4,42 +4,44 @@ import { Product } from "@/types/ProductTypes";
 import { ID ,Query} from 'appwrite'; 
 import { Category } from "@/types/CategoryTypes";
 
-export async function fetchProducts(): Promise<Product[]> {
+export async function fetchProducts(queries: Query[] = []): Promise<Product[]> { // Add queries parameter
     try {
-      const response = await databases.listDocuments(
-        appwriteConfig.databaseId, // Database ID
-        appwriteConfig.productscollectionId, // Collection ID
+        const response = await databases.listDocuments(
+            appwriteConfig.databaseId,
+            appwriteConfig.productscollectionId,
 
-      );
-  
-      // Cast the documents to Product[]
-      const products = response.documents.map((doc) => ({
-        $collectionId: doc.$collectionId,
-        $createdAt: doc.$createdAt,
-        $databaseId: doc.$databaseId,
-        $id: doc.$id,
-        $permissions: doc.$permissions,
-        $updatedAt: doc.$updatedAt,
-        categoryId: doc.categoryId,
-        createdAt: doc.createdAt,
-        description: doc.description,
-        discount: doc.discount,
-        imageUrl: doc.imageUrl,
-        isFeatured: doc.isFeatured,
-        mrp: doc.mrp,
-        name: doc.name,
-        price: doc.price,
-        productId: doc.productId,
-        stock: doc.stock,
-        updatedAt: doc.updatedAt,
-      }));
-  
-      return products;
+        );
+
+        const products = response.documents.map((doc) => ({
+            $collectionId: doc.$collectionId,
+            $createdAt: doc.$createdAt,
+            $databaseId: doc.$databaseId,
+            $id: doc.$id,
+            $permissions: doc.$permissions,
+            $updatedAt: doc.$updatedAt,
+            categoryId: doc.categoryId,
+            createdAt: doc.createdAt,
+            description: doc.description,
+            discount: doc.discount,
+            imageUrl: doc.imageUrl,
+            isFeatured: doc.isFeatured,
+            mrp: doc.mrp,
+            name: doc.name,
+            price: doc.price,
+            productId: doc.productId,
+            stock: doc.stock,
+            unit: doc.unit,
+            
+            updatedAt: doc.updatedAt,
+
+        }));
+
+        return products;
     } catch (error) {
-      console.error('Error fetching products:', error);
-      return []; // Return an empty array in case of error
+        console.error('Error fetching products:', error);
+        return [];
     }
-  }
+}
 
  /**
  * Adds a new product to the Appwrite database.
@@ -47,42 +49,85 @@ export async function fetchProducts(): Promise<Product[]> {
  * @returns The created product document.
  */
  export async function addProduct(product: Omit<Product, "$id" | "$collectionId" | "$databaseId" | "$createdAt" | "$updatedAt" | "$permissions">): Promise<Product> {
+
   try {
+ 
     const response = await databases.createDocument(
-      appwriteConfig.databaseId, // Database ID
-      appwriteConfig.productscollectionId, // Collection ID
-      ID.unique(), // Auto-generate a unique document ID
-      product // Product data
+ 
+      appwriteConfig.databaseId,
+ 
+      appwriteConfig.productscollectionId,
+ 
+      ID.unique(),
+ 
+      product
+ 
     );
-
-    // Map the response to the Product type
+ 
+ 
+ 
+    // More robust mapping with optional chaining and nullish coalescing:
+ 
+   
+ 
+    
+ 
     const createdProduct: Product = {
+ 
       $collectionId: response.$collectionId,
+ 
       $createdAt: response.$createdAt,
+ 
       $databaseId: response.$databaseId,
+ 
       $id: response.$id,
+ 
       $permissions: response.$permissions,
+ 
       $updatedAt: response.$updatedAt,
+ 
       categoryId: response.categoryId,
+ 
       createdAt: response.createdAt,
+ 
       description: response.description,
-      discount: response.discount,
+ 
+      discount: Number(response.discount) ?? null,
+ 
       imageUrl: response.imageUrl,
+ 
       isFeatured: response.isFeatured,
+ 
       mrp: response.mrp,
+ 
       name: response.name,
+ 
       price: response.price,
+ 
       productId: response.productId,
+ 
       stock: response.stock,
+ 
+      unit: response.unit,
+ 
       updatedAt: response.updatedAt,
-    };
 
+ 
+    };
+ 
+ 
+ 
     return createdProduct;
+ 
   } catch (error) {
+ 
     console.error("Error adding product:", error);
+ 
     throw new Error("Failed to add product. Please try again.");
+ 
   }
-}
+ 
+ }
 
 
 

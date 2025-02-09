@@ -1,4 +1,9 @@
 // Define the Product interface
+
+export interface Flavour {
+  name: string; // Name of the flavour (e.g., "Vanilla", "Chocolate")
+  quantity: number; // Quantity available for this flavour
+}
 export interface Product {
     $collectionId: string;
     $createdAt: string;
@@ -17,5 +22,7 @@ export interface Product {
     price: number;
     productId: string;
     stock: number;
+    unit:string;
+
     updatedAt: string;
   }

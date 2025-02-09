@@ -15,6 +15,7 @@ import toast, { Toaster } from "react-hot-toast";
 
 export function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [newFlavors, setNewFlavors] = useState<string[]>([]);
   const [newProduct, setNewProduct] = useState<Omit<Product, "$id" | "$collectionId" | "$databaseId" | "$createdAt" | "$updatedAt" | "$permissions">>({
     categoryId: "",
     createdAt: "",
@@ -25,8 +26,10 @@ export function ProductsTab() {
     mrp: null,
     name: "",
     price: 0,
-    productId: "",
+    productId: "", // Add productId
+    unit: "", // Add unit
     stock: 0,
+  
     updatedAt: "",
   });
   const [categories, setCategories] = useState<Category[]>([]);
@@ -72,10 +75,26 @@ export function ProductsTab() {
     loadCategories();
   }, []);
 
+  //  fot auto calcuateing discount 
+  useEffect(() => {
+    if (newProduct.mrp && newProduct.price) {
+      const discountPercentage = ((newProduct.mrp - newProduct.price) / newProduct.mrp) * 100;
+      setNewProduct((prev) => ({
+        ...prev,
+        discount: parseFloat(discountPercentage.toFixed(2)), // Round to 2 decimal places
+      }));
+    } else {
+      setNewProduct((prev) => ({
+        ...prev,
+        discount: null, // Reset discount if mrp or price is missing
+      }));
+    }
+  }, [newProduct.mrp, newProduct.price]);
+
   const handleAddProduct = async () => {
     try {
       // Validate required fields
-      if (!newProduct.name || !newProduct.price || !newProduct.categoryId) {
+      if (!newProduct.name || !newProduct.price || !newProduct.categoryId || !newProduct.productId || !newProduct.unit) {
         toast.error("Please fill in all required fields.");
         return;
       }
@@ -101,8 +120,10 @@ export function ProductsTab() {
         mrp: null,
         name: "",
         price: 0,
-        productId: "",
+        productId: "", // Reset productId
+        unit: "", // Reset unit
         stock: 0,
+
         updatedAt: "",
       });
 
@@ -133,6 +154,7 @@ export function ProductsTab() {
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
+                <TableHead>Product Item Code</TableHead> {/* Add this */}
                 <TableHead>Name</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Price</TableHead>
@@ -140,6 +162,7 @@ export function ProductsTab() {
                 <TableHead>Discount</TableHead>
                 <TableHead>Image</TableHead>
                 <TableHead>Stock</TableHead>
+                <TableHead>Unit</TableHead> {/* Add this */}
                 <TableHead>Featured</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Created</TableHead>
@@ -151,6 +174,7 @@ export function ProductsTab() {
               {Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell> {/* Add this */}
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
@@ -158,6 +182,7 @@ export function ProductsTab() {
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                   <TableCell><Skeleton className="h-10 w-10 rounded-md" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell> {/* Add this */}
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
@@ -192,23 +217,40 @@ export function ProductsTab() {
           value={newProduct.name}
           onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
         />
+        <Input
+          placeholder="Product Item Code"
+          value={newProduct.productId}
+          onChange={(e) => setNewProduct({ ...newProduct, productId: e.target.value })}
+          required
+        />
         <Textarea
           placeholder="Description"
           value={newProduct.description}
           onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
         />
-        <Input
-          placeholder="Price"
-          type="number"
-          value={newProduct.price || ""}
-          onChange={(e) => setNewProduct({ ...newProduct, price: Number.parseFloat(e.target.value) })}
-        />
-        <Input
-          placeholder="MRP"
-          type="number"
-          value={newProduct.mrp || ""}
-          onChange={(e) => setNewProduct({ ...newProduct, mrp: Number.parseFloat(e.target.value) })}
-        />
+ <Input
+  placeholder="Price"
+  type="number"
+  value={newProduct.price || ""}
+  onChange={(e) =>
+    setNewProduct({
+      ...newProduct,
+      price: Number.parseFloat(e.target.value),
+    })
+  }
+/>
+
+       <Input
+  placeholder="MRP"
+  type="number"
+  value={newProduct.mrp || ""}
+  onChange={(e) =>
+    setNewProduct({
+      ...newProduct,
+      mrp: Number.parseFloat(e.target.value),
+    })
+  }
+/>
         <Input
           placeholder="Discount"
           type="number"
@@ -226,6 +268,21 @@ export function ProductsTab() {
           value={newProduct.stock || ""}
           onChange={(e) => setNewProduct({ ...newProduct, stock: Number.parseInt(e.target.value) })}
         />
+        <Select
+          onValueChange={(value) => setNewProduct({ ...newProduct, unit: value })}
+          value={newProduct.unit}
+          required
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select unit" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="kg">kg</SelectItem>
+            <SelectItem value="Pac">Pac</SelectItem>
+            <SelectItem value="Box">Box</SelectItem>
+            <SelectItem value="Jar">Jar</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex items-center space-x-2">
           <Checkbox
             id="isFeatured"
@@ -239,6 +296,13 @@ export function ProductsTab() {
             Featured Product
           </label>
         </div>
+
+
+      
+{/*  flavor end ============================================= */}
+
+
+
         <Select onValueChange={(value) => setNewProduct({ ...newProduct, categoryId: value })}>
           <SelectTrigger>
             <SelectValue placeholder="Select category" />
@@ -258,6 +322,9 @@ export function ProductsTab() {
           </SelectContent>
         </Select>
       </div>
+
+
+
       <Button onClick={handleAddProduct} className="w-full">
         Add Product
       </Button>
@@ -266,6 +333,7 @@ export function ProductsTab() {
           <TableHeader>
             <TableRow>
               <TableHead>ID</TableHead>
+              <TableHead>Product Item Code</TableHead> {/* Add this */}
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Price</TableHead>
@@ -273,7 +341,10 @@ export function ProductsTab() {
               <TableHead>Discount</TableHead>
               <TableHead>Image</TableHead>
               <TableHead>Stock</TableHead>
+              <TableHead>Unit</TableHead> {/* Add this */}
               <TableHead>Featured</TableHead>
+          
+    
               <TableHead>Category</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Updated</TableHead>
@@ -284,6 +355,7 @@ export function ProductsTab() {
             {products.map((product) => (
               <TableRow key={product.$id}>
                 <TableCell>{product.$id}</TableCell>
+                <TableCell>{product.productId}</TableCell> {/* Add this */}
                 <TableCell>{product.name}</TableCell>
                 <TableCell>{product.description}</TableCell>
                 <TableCell>${product.price.toFixed(2)}</TableCell>
@@ -297,8 +369,12 @@ export function ProductsTab() {
                   />
                 </TableCell>
                 <TableCell>{product.stock}</TableCell>
+                <TableCell>{product.unit}</TableCell> {/* Add this */}
                 <TableCell>{product.isFeatured ? "Yes" : "No"}</TableCell>
+
                 <TableCell>{categoryMap.get(product.categoryId) || "Unknown"}</TableCell>
+
+
                 <TableCell>{new Date(product.createdAt).toLocaleDateString()}</TableCell>
                 <TableCell>{new Date(product.updatedAt).toLocaleDateString()}</TableCell>
                 <TableCell>
