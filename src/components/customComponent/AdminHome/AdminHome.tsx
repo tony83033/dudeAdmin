@@ -20,6 +20,7 @@ export default function AdminHome() {
           <TabsTrigger value="users">Users</TabsTrigger>
           {/* <TabsTrigger value="top-categories">Top Categories</TabsTrigger> */}
           <TabsTrigger value="images">Images</TabsTrigger>
+          <TabsTrigger value="images">flavour</TabsTrigger>
           <TabsTrigger value="Prodect-of-the-day">Product of the Day</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
         </TabsList>
