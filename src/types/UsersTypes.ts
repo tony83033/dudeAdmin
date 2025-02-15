@@ -3,7 +3,7 @@ export interface User {
     email: string; // User's email
     name: string; // Full name
     phone: string; // Phone number
-    retailCode: String; // Retailer-specific code
+    retailCode: string; // Retailer-specific code
     address: string; // User's address
     shopName: string; // Name of the shop
     password: string; // Unique password (required for validation)
