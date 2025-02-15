@@ -1,3 +1,4 @@
+import exp from "constants";
 import React from "react";
 
 const Flavour = () => {
@@ -6,3 +7,5 @@ const Flavour = () => {
         Comming soon
     </div>;
 };
+
+export default Flavour;
