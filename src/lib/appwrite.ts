@@ -18,7 +18,8 @@ export const appwriteConfig = {
     cartsCollectionId: "6787910e000842462c22",
     imagesCollectionId:"679aac1c0030e98d1537",
     productOfTheDayCollectionId:"67a052e00031d601a6b5",
-    imageBucketId:"679a93ca0015bbc8a2db"
+    imageBucketId:"679a93ca0015bbc8a2db",
+    
 
   };
 const client = new Client();
