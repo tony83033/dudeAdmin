@@ -43,14 +43,13 @@ export async function fetchProducts(queries: Query[] = []): Promise<Product[]> {
     }
 }
 
- /**
- * Adds a new product to the Appwrite database.
- * @param product - The product data to add.
- * @returns The created product document.
- */
+
  export async function addProduct(product: Omit<Product, "$id" | "$collectionId" | "$databaseId" | "$createdAt" | "$updatedAt" | "$permissions">): Promise<Product> {
 
   try {
+    // Ensure discount is an integer before sending to Appwrite
+    const discount = product.discount ? parseInt(product.discount.toString(), 10) : null;
+
  
     const response = await databases.createDocument(
  
@@ -60,7 +59,10 @@ export async function fetchProducts(queries: Query[] = []): Promise<Product[]> {
  
       ID.unique(),
  
-      product
+      {
+        ...product,
+        discount: discount, // Use the converted discount
+    }
  
     );
  
@@ -68,7 +70,10 @@ export async function fetchProducts(queries: Query[] = []): Promise<Product[]> {
  
     // More robust mapping with optional chaining and nullish coalescing:
  
-   
+    // let discount: number | null = null;
+    // if (product.discount !== null && product.discount !== undefined) {
+    //     discount = parseInt(product.discount.toString(), 10);
+    // }
  
     
  
@@ -91,8 +96,8 @@ export async function fetchProducts(queries: Query[] = []): Promise<Product[]> {
       createdAt: response.createdAt,
  
       description: response.description,
- 
-      discount: Number(response.discount) ?? null,
+      // todo convert this to integer
+      discount: response.discount,
  
       imageUrl: response.imageUrl,
  
@@ -132,11 +137,6 @@ export async function fetchProducts(queries: Query[] = []): Promise<Product[]> {
 
 
 
-/**
- * Fetches categories from the Appwrite database.
- * This function is to fetchthe categories Id  and then render it on Product ui, it help in function of addProduct to select category from dropdown menue
- * @returns An array of categories.
- */
 export async function fetchCategories(): Promise<Category[]> {
   try {
     const response = await databases.listDocuments(
@@ -161,10 +161,7 @@ export async function fetchCategories(): Promise<Category[]> {
   }
 }
 
-/**
- * Deletes a product from the Appwrite database.
- * @param productId - The ID of the product to delete.
- */
+
 export async function deleteProduct(productId: string): Promise<void> {
   try {
     await databases.deleteDocument(
@@ -177,3 +174,5 @@ export async function deleteProduct(productId: string): Promise<void> {
     throw new Error("Failed to delete product. Please try again.");
   }
 }
+
+
