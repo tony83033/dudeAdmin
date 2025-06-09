@@ -1,0 +1,67 @@
+{
+  "collectionId": "pincodes",
+  "name": "pincodes",
+  "permissions": ["read(\"any\")"],
+  "documentSecurity": false,
+  "attributes": [
+    {
+      "key": "pincode",
+      "type": "string",
+      "required": true,
+      "min": 6,
+      "max": 6,
+      "format": "number"
+    },
+    {
+      "key": "area",
+      "type": "string",
+      "required": true,
+      "min": 1,
+      "max": 100
+    },
+    {
+      "key": "city",
+      "type": "string",
+      "required": true,
+      "min": 1,
+      "max": 100
+    },
+    {
+      "key": "state",
+      "type": "string",
+      "required": true,
+      "min": 1,
+      "max": 100
+    },
+    {
+      "key": "isActive",
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    {
+      "key": "createdAt",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "updatedAt",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "indexes": [
+    {
+      "key": "pincode",
+      "type": "key",
+      "attributes": ["pincode"],
+      "orders": ["ASC"]
+    },
+    {
+      "key": "isActive",
+      "type": "key",
+      "attributes": ["isActive"],
+      "orders": ["ASC"]
+    }
+  ]
+} 

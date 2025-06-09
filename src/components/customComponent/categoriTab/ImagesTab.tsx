@@ -90,16 +90,22 @@ export function ImagesTab() {
   };
 
   // Format date
-  const formatDate = (date: Date): string => {
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(date);
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid Date';
+    }
   };
 
   // Skeleton Loader for Table Rows
@@ -194,8 +200,8 @@ export function ImagesTab() {
                     </Button>
                   </div>
                 </TableCell>
-                <TableCell>{formatDate(new Date(image.createdAt))}</TableCell>
-                <TableCell>{formatDate(new Date(image.updatedAt))}</TableCell>
+                <TableCell>{formatDate(image.createdAt)}</TableCell>
+                <TableCell>{formatDate(image.updatedAt)}</TableCell>
                 <TableCell>
                   <Button
                     variant="destructive"

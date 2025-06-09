@@ -1,6 +1,11 @@
-//src/lib/appwrit.ts
-import { Client,Account,Databases,Storage } from 'appwrite';
 
+
+
+
+
+
+
+import { Client, Account, Databases, Storage } from 'appwrite';
 
 export const appwriteConfig = {
     endpoint: "https://cloud.appwrite.io/v1",
@@ -16,15 +21,16 @@ export const appwriteConfig = {
     reviewsCollectionId: "67842677000e2ff86cd8",
     topCategoriesCollectionId: "6784f04b001d5ad03d85",
     cartsCollectionId: "6787910e000842462c22",
-    imagesCollectionId:"679aac1c0030e98d1537",
-    productOfTheDayCollectionId:"67a052e00031d601a6b5",
-    imageBucketId:"679a93ca0015bbc8a2db",
-    
+    imagesCollectionId: "679aac1c0030e98d1537",
+    productOfTheDayCollectionId: "67a052e00031d601a6b5",
+    imageBucketId: "679a93ca0015bbc8a2db",
+    pincodesCollectionId: "pincodes",
+    priceMultipliersCollectionId: "priceMultipliers", // Add this
+};
 
-  };
 const client = new Client();
-client.setProject(appwriteConfig.projectId)
-client.setEndpoint(appwriteConfig.endpoint)
+client.setProject(appwriteConfig.projectId);
+client.setEndpoint(appwriteConfig.endpoint);
 
 export const account = new Account(client);
 export const storage = new Storage(client);

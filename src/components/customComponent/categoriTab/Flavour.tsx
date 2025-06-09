@@ -1,11 +1,11 @@
-import exp from "constants";
 import React from "react";
 
 const Flavour = () => {
-    return <div className="text-2xl font-bold">Flavour 
-
-        Comming soon
-    </div>;
+    return (
+        <div className="text-2xl font-bold text-center py-8">
+            Coming Soon
+        </div>
+    );
 };
 
 export default Flavour;

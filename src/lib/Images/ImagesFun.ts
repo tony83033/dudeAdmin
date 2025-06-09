@@ -33,8 +33,8 @@ export const uploadImage = async (file: File, name: string): Promise<Image> => {
       $id: documentResponse.$id,
       name: documentResponse.name,
       imageUrl: documentResponse.imageUrl,
-      createdAt: new Date(documentResponse.createdAt),
-      updatedAt: new Date(documentResponse.updatedAt),
+      createdAt: documentResponse.createdAt,
+      updatedAt: documentResponse.updatedAt,
     };
   } catch (error) {
     console.error('Error uploading image:', error);
@@ -55,8 +55,8 @@ export const fetchImages = async (): Promise<Image[]> => {
       $id: doc.$id,
       name: doc.name,
       imageUrl: doc.imageUrl,
-      createdAt: new Date(doc.createdAt), // Convert string to Date
-      updatedAt: new Date(doc.updatedAt), // Convert string to Date
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
     }));
 
     return images;
