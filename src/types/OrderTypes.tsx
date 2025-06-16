@@ -1,12 +1,13 @@
-// types/OrderTypes.ts
 import { Models } from 'appwrite';
 
+// Define types for order items, delivery address, and user details
 export interface OrderItem {
   productId: string;
   name: string;
   price: number;
   quantity: number;
   imageUrl: string;
+  gst?: number;
 }
 
 export interface DeliveryAddress {
@@ -14,6 +15,8 @@ export interface DeliveryAddress {
   address: string;
   pincode: string;
   phone: string;
+  city?: string;
+  state?: string;
 }
 
 export interface UserDetails {
@@ -24,9 +27,11 @@ export interface UserDetails {
   address?: string | null;
   pincode?: string | null;
   retailCode?: string | null;
+  ratanaCash: number; // Amount of Ratana Cash available
   createdAt: string;
 }
 
+// Order extends Models.Document to include Appwrite-specific fields
 export interface Order extends Models.Document {
   orderId: string;
   userId: string;
@@ -39,9 +44,8 @@ export interface Order extends Models.Document {
   discount?: number;
   tax?: number;
   shippingCost?: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
+// Define statuses for order and payment
 export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 export type PaymentStatus = 'paid' | 'pending' | 'failed' | 'refunded';

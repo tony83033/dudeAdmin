@@ -1,44 +1,42 @@
-// src/lib/product/HandleUsers.ts
-import { databases, appwriteConfig } from "@/lib/appwrite"
-import { User } from "@/types/UsersTypes"
-import { ID, Query } from 'appwrite';
+// src/lib/product/HandleProdceOfTheDay
+import {databases,appwriteConfig} from "@/lib/appwrite"
 
-export async function fetchUsers(queries: Query[] = []): Promise<User[]> {
+import {User} from "../../types/UsersTypes"
+import { ID ,Query} from 'appwrite'; 
+export async function fetchUsers(queries: Query[] = []): Promise<User[]> { // Add queries parameter
     try {
         const response = await databases.listDocuments(
             appwriteConfig.databaseId,
             appwriteConfig.userCollectionId,
+
         );
 
         const users = response.documents.map((doc) => ({
-            $id: doc.$id,
-            $collectionId: doc.$collectionId,
-            $databaseId: doc.$databaseId,
-            $createdAt: doc.$createdAt,
-            $updatedAt: doc.$updatedAt,
-            $permissions: doc.$permissions,
-            userId: doc.userId,
+            userId: doc.userId,// Unique user ID from Appwrite Auth
             email: doc.email,
             name: doc.name,
             phone: doc.phone,
-            password: doc.password,
             retailCode: doc.retailCode,
             address: doc.address,
             shopName: doc.shopName,
+            password: doc.password,
+            profileUrl: doc.profileUrl,
             pincode: doc.pincode,
             createdAt: doc.$createdAt,
-            updatedAt: doc.$updatedAt,
+            updatedAt: doc.updatedAt,
+
         }));
 
         return users;
     } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching products:', error);
         return [];
     }
 }
 
 export async function updateUserRetailCode(userId: string, newRetailCode: string): Promise<void> {
     try {
+        // Step 1: Update the retail code in Appwrite
         await databases.updateDocument(
             appwriteConfig.databaseId,
             appwriteConfig.userCollectionId,

@@ -1,234 +1,402 @@
-// components/pdf/InvoiceGenerator.tsx
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
+import {
+  Document,
+  Page,
+  Text,
+  View,
+  StyleSheet,
+  pdf,
+  Image,
+} from '@react-pdf/renderer';
 import { Order } from '@/types/OrderTypes';
+
+const QR_CODE_PATH = '/assets/ratana.jpg';
 
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#ffffff',
-    padding: 40,
+    padding: 20,
     fontFamily: 'Helvetica',
+    fontSize: 10,
   },
+  // Header Section
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginBottom: 30,
     alignItems: 'center',
-    marginBottom: 40,
-    borderBottom: 2,
-    borderBottomColor: '#e1e5e9',
-    paddingBottom: 20,
   },
-  logo: {
-    fontSize: 24,
+  qrTop: {
+    width: 80,
+    height: 80,
+    marginBottom: 10,
+  },
+  companyName: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#2563eb',
+    color: '#000',
+    marginBottom: 5,
   },
-  invoice: {
+  companyDetails: {
+    fontSize: 9,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  saleOrderTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#374151',
+    textAlign: 'center',
+    marginVertical: 20,
+    color: '#000',
   },
-  billTo: {
+  orderInfoSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 30,
   },
-  billSection: {
-    width: '45%',
+  orderFrom: {
+    width: '60%',
   },
-  sectionTitle: {
+  orderDetails: {
+    width: '35%',
+    alignItems: 'flex-end',
+  },
+  sectionLabel: {
+    fontSize: 10,
+    color: '#666',
+    marginBottom: 5,
+  },
+  customerInfo: {
+    fontSize: 10,
+    color: '#000',
+    marginBottom: 2,
+  },
+  customerName: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 3,
+  },
+  orderNumber: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#6b7280',
-    marginBottom: 8,
-    textTransform: 'uppercase',
+    color: '#000',
+    textAlign: 'right',
   },
-  text: {
+  orderDate: {
     fontSize: 10,
-    color: '#374151',
-    marginBottom: 4,
+    color: '#666',
+    textAlign: 'right',
+    marginTop: 2,
   },
-  table: {
-    width: '100%',
-    marginTop: 20,
-    borderStyle: 'solid',
+  itemsContainer: {
+    marginBottom: 20,
+  },
+  itemCard: {
     borderWidth: 1,
-    borderColor: '#e1e5e9',
-    flexDirection: 'column',
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12, // Reduced for compactness
+    marginBottom: 10,
+    backgroundColor: '#fafafa',
   },
-  tableRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e5e9',
-  },
-  tableColHeader: {
-    width: '25%',
-    borderRightWidth: 1,
-    borderRightColor: '#e1e5e9',
-    backgroundColor: '#f9fafb',
-    padding: 8,
-  },
-  tableCol: {
-    width: '25%',
-    borderRightWidth: 1,
-    borderRightColor: '#e1e5e9',
-    padding: 8,
-  },
-  tableCellHeader: {
-    fontSize: 10,
+  itemName: {
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#374151',
+    color: '#2196F3',
+    marginBottom: 10,
   },
-  tableCell: {
-    fontSize: 9,
-    color: '#374151',
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
   },
-  totals: {
-    marginTop: 20,
-    alignItems: 'flex-end',
+  itemLabel: {
+    fontSize: 10,
+    color: '#666',
+    width: '25%',
+  },
+  itemValue: {
+    fontSize: 10,
+    color: '#000',
+    width: '20%',
+    textAlign: 'center',
+  },
+  itemAmount: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#000',
+    width: '20%',
+    textAlign: 'right',
+  },
+  pricingCard: {
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    padding: 12, // Reduced for compactness
+    marginBottom: 20,
+    backgroundColor: '#fafafa',
+  },
+  pricingTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 15,
+  },
+  pricingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  pricingLabel: {
+    fontSize: 10,
+    color: '#666',
+  },
+  pricingValue: {
+    fontSize: 10,
+    color: '#000',
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: 200,
-    marginBottom: 4,
+    marginBottom: 8,
+    paddingTop: 5,
   },
   totalLabel: {
-    fontSize: 10,
-    color: '#6b7280',
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#2196F3',
   },
   totalValue: {
-    fontSize: 10,
-    color: '#374151',
+    fontSize: 11,
     fontWeight: 'bold',
+    color: '#2196F3',
+  },
+  transactionBalance: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  balanceLabel: {
+    fontSize: 10,
+    color: '#666',
+  },
+  balanceValue: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  bankSection: {
+    flexDirection: 'row',
+    backgroundColor: '#f5f5f5',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  qrCode: {
+    width: 80,
+    height: 80,
+    marginRight: 15,
+  },
+  bankDetails: {
+    flex: 1,
+  },
+  bankTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 5,
+  },
+  bankInfo: {
+    fontSize: 9,
+    color: '#666',
+    marginBottom: 2,
   },
   footer: {
-    marginTop: 40,
-    paddingTop: 20,
-    borderTop: 1,
-    borderTopColor: '#e1e5e9',
-    fontSize: 8,
-    color: '#6b7280',
-    textAlign: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingTop: 10,
+  },
+  termsTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 5,
+  },
+  termsText: {
+    fontSize: 9,
+    color: '#666',
   },
 });
+
+const formatPrice = (price: number) => `₹ ${price.toFixed(2)}`;
+const formatDate = (dateString?: string) => {
+  if (!dateString) return new Date().toLocaleDateString('en-GB');
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return new Date().toLocaleDateString('en-GB');
+  return date.toLocaleDateString('en-GB');
+};
 
 interface InvoiceDocumentProps {
   order: Order;
 }
 
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    currencyDisplay: 'code'
-  }).format(price).replace('INR', 'Rs.');
-};
-
 const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ order }) => (
   <Document>
     <Page size="A4" style={styles.page}>
-      {/* Header */}
+      {/* Header with QR at top */}
       <View style={styles.header}>
-        <Text style={styles.logo}>Your Store Name</Text>
-        <View>
-          <Text style={styles.invoice}>INVOICE</Text>
-          <Text style={styles.text}>#{order.orderId.slice(-8)}</Text>
-          <Text style={styles.text}>Date: {new Date(order.createdAt).toLocaleDateString()}</Text>
-        </View>
+        <Image style={styles.qrTop} src={QR_CODE_PATH} />
+        <Text style={styles.companyName}>Ratana ADMIN</Text>
+        <Text style={styles.companyDetails}>GSTIN : 08BYEPJ8224Q1ZT</Text>
+        <Text style={styles.companyDetails}>9116045123</Text>
+        <Text style={styles.companyDetails}>SANGANER SHYAM VIHAR 43 Diggi Malpura Road</Text>
+        <Text style={styles.companyDetails}>Jaipur</Text>
       </View>
 
-      {/* Bill To Section */}
-      <View style={styles.billTo}>
-        <View style={styles.billSection}>
-          <Text style={styles.sectionTitle}>Bill To:</Text>
-          <Text style={styles.text}>{order.userDetails.name}</Text>
-          <Text style={styles.text}>{order.userDetails.email}</Text>
-          <Text style={styles.text}>{order.userDetails.phone}</Text>
-        </View>
-        <View style={styles.billSection}>
-          <Text style={styles.sectionTitle}>Ship To:</Text>
-          <Text style={styles.text}>{order.deliveryAddress.name}</Text>
-          <Text style={styles.text}>{order.deliveryAddress.address}</Text>
-          <Text style={styles.text}>{order.deliveryAddress.pincode}</Text>
-          <Text style={styles.text}>{order.deliveryAddress.phone}</Text>
-        </View>
-      </View>
+      {/* Sale Order Title */}
+      <Text style={styles.saleOrderTitle}>Sale Order</Text>
 
-      {/* Items Table */}
-      <View style={styles.table}>
-        <View style={styles.tableRow}>
-          <View style={styles.tableColHeader}>
-            <Text style={styles.tableCellHeader}>Item</Text>
-          </View>
-          <View style={styles.tableColHeader}>
-            <Text style={styles.tableCellHeader}>Quantity</Text>
-          </View>
-          <View style={styles.tableColHeader}>
-            <Text style={styles.tableCellHeader}>Price</Text>
-          </View>
-          <View style={styles.tableColHeader}>
-            <Text style={styles.tableCellHeader}>Total</Text>
-          </View>
+      {/* Order Info Section */}
+      <View style={styles.orderInfoSection}>
+        <View style={styles.orderFrom}>
+          <Text style={styles.sectionLabel}>Order from:</Text>
+          <Text style={styles.customerName}>{order.userDetails?.name || 'N/A'}</Text>
+          <Text style={styles.customerInfo}>{order.userDetails?.email || 'N/A'}</Text>
+          <Text style={styles.customerInfo}>{order.userDetails?.phone || 'N/A'}</Text>
+          <Text style={styles.customerInfo}>{order.deliveryAddress?.address || 'N/A'}</Text>
+          <Text style={styles.customerInfo}>{order.deliveryAddress?.city || ''}</Text>
+          <Text style={styles.customerInfo}>PIN: {order.deliveryAddress?.pincode || 'N/A'}</Text>
+          {order.deliveryAddress?.state && (
+            <Text style={styles.customerInfo}>{order.deliveryAddress.state}</Text>
+          )}
         </View>
-        {order.items.map((item, index) => (
-          <View style={styles.tableRow} key={index}>
-            <View style={styles.tableCol}>
-              <Text style={styles.tableCell}>{item.name}</Text>
-            </View>
-            <View style={styles.tableCol}>
-              <Text style={styles.tableCell}>{item.quantity}</Text>
-            </View>
-            <View style={styles.tableCol}>
-              <Text style={styles.tableCell}>{formatPrice(item.price)}</Text>
-            </View>
-            <View style={styles.tableCol}>
-              <Text style={styles.tableCell}>{formatPrice(item.quantity * item.price)}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-
-      {/* Totals */}
-      <View style={styles.totals}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Subtotal:</Text>
-          <Text style={styles.totalValue}>
-            {formatPrice(order.items.reduce((sum, item) => sum + (item.quantity * item.price), 0))}
+        <View style={styles.orderDetails}>
+          <Text style={styles.sectionLabel}>Order No.</Text>
+          <Text style={styles.orderNumber}>{order.orderId?.slice(-2) || 'N/A'}</Text>
+          <Text style={styles.orderDate}>
+            Date: {formatDate(order.createdAt)}
+          </Text>
+          <Text style={styles.orderDate}>
+            Due Date: {formatDate(order.createdAt)}
           </Text>
         </View>
-        {order.discount && order.discount > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Discount:</Text>
-            <Text style={styles.totalValue}>-{formatPrice(order.discount)}</Text>
-          </View>
-        )}
-        {order.tax && order.tax > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Tax:</Text>
-            <Text style={styles.totalValue}>{formatPrice(order.tax)}</Text>
-          </View>
-        )}
-        {order.shippingCost && order.shippingCost > 0 && (
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Shipping:</Text>
-            <Text style={styles.totalValue}>{formatPrice(order.shippingCost)}</Text>
-          </View>
-        )}
+      </View>
+
+      {/* Items */}
+      <View style={styles.itemsContainer}>
+        {order.items?.map((item, index) => {
+          // Use GST from item, fallback to 0
+          const gstPercent = typeof item.gst === 'number' ? item.gst : 0;
+          const basePrice = item.price || 0;
+          const gstAmount = basePrice * (gstPercent / 100);
+          const finalUnitPrice = basePrice + gstAmount;
+          return (
+            <View style={styles.itemCard} key={index}>
+              <Text style={styles.itemName}>{(item.name || 'Untitled Item').toUpperCase()}</Text>
+              <View style={styles.itemRow}>
+                <Text style={styles.itemLabel}>Quantity</Text>
+                <Text style={styles.itemLabel}>Price/Unit</Text>
+                <Text style={styles.itemLabel}>GST (SGST+CGST)</Text>
+                <Text style={styles.itemLabel}>Amount</Text>
+              </View>
+              <View style={styles.itemRow}>
+                <Text style={styles.itemValue}>{item.quantity || 0} Pac</Text>
+                <Text style={styles.itemValue}>{formatPrice(basePrice)}</Text>
+                <Text style={styles.itemValue}>{gstPercent ? `${gstPercent}%` : '0%'}</Text>
+                <Text style={styles.itemAmount}>
+                  {formatPrice((item.quantity || 0) * finalUnitPrice)}
+                </Text>
+              </View>
+              {gstPercent > 0 && (
+                <View style={styles.itemRow}>
+                  <Text style={styles.itemLabel}></Text>
+                  <Text style={styles.itemLabel}></Text>
+                  <Text style={styles.itemLabel}>GST Amt</Text>
+                  <Text style={styles.itemValue}>{formatPrice((item.quantity || 0) * gstAmount)}</Text>
+                </View>
+              )}
+            </View>
+          );
+        }) || <Text>No items available</Text>}
+      </View>
+
+      {/* Pricing Breakdown */}
+      <View style={styles.pricingCard}>
+        <Text style={styles.pricingTitle}>Pricing / Breakup</Text>
+        <View style={styles.pricingRow}>
+          <Text style={styles.pricingLabel}>Sub Total</Text>
+          <Text style={styles.pricingValue}>
+            {formatPrice(
+              order.items?.reduce((sum, item) => sum + (item.quantity || 0) * (item.price || 0), 0) || 0
+            )}
+          </Text>
+        </View>
+        {/* GST Breakdown by percent */}
+        {(() => {
+          const gstMap: { [percent: number]: number } = {};
+          order.items?.forEach(item => {
+            const gstPercent = typeof item.gst === 'number' ? item.gst : 0;
+            const basePrice = item.price || 0;
+            const gstAmount = basePrice * (gstPercent / 100) * (item.quantity || 0);
+            if (gstPercent > 0) {
+              gstMap[gstPercent] = (gstMap[gstPercent] || 0) + gstAmount;
+            }
+          });
+          const gstPercents = Object.keys(gstMap).map(Number).sort((a, b) => a - b);
+          if (gstPercents.length > 1) {
+            return gstPercents.map(percent => (
+              <View style={styles.pricingRow} key={percent}>
+                <Text style={styles.pricingLabel}>GST ({percent}% SGST+CGST)</Text>
+                <Text style={styles.pricingValue}>{formatPrice(gstMap[percent])}</Text>
+              </View>
+            ));
+          } else if (gstPercents.length === 1) {
+            const percent = gstPercents[0];
+            return (
+              <View style={styles.pricingRow}>
+                <Text style={styles.pricingLabel}>Total GST ({percent}% SGST+CGST)</Text>
+                <Text style={styles.pricingValue}>{formatPrice(gstMap[percent])}</Text>
+              </View>
+            );
+          } else {
+            return (
+              <View style={styles.pricingRow}>
+                <Text style={styles.pricingLabel}>Total GST</Text>
+                <Text style={styles.pricingValue}>{formatPrice(0)}</Text>
+              </View>
+            );
+          }
+        })()}
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total:</Text>
-          <Text style={styles.totalValue}>{formatPrice(order.totalAmount)}</Text>
+          <Text style={styles.totalLabel}>Total Amount</Text>
+          <Text style={styles.totalValue}>{formatPrice(order.totalAmount || 0)}</Text>
+        </View>
+        <View style={styles.pricingRow}>
+          <Text style={styles.pricingLabel}>Advance</Text>
+          <Text style={styles.pricingValue}>₹ 0</Text>
+        </View>
+        <View style={styles.transactionBalance}>
+          <Text style={styles.balanceLabel}>Transaction Balance</Text>
+          <Text style={styles.balanceValue}>{formatPrice(order.totalAmount || 0)}</Text>
+        </View>
+      </View>
+
+      {/* Bank Details */}
+      <View style={styles.bankSection}>
+        <Image style={styles.qrCode} src={QR_CODE_PATH} />
+        <View style={styles.bankDetails}>
+          <Text style={styles.bankTitle}>Bank Details</Text>
+          <Text style={styles.bankInfo}>Hdfc Bank, Sanganer Bazar Jaipur</Text>
+          <Text style={styles.bankInfo}>Padmavati Marketing</Text>
+          <Text style={styles.bankInfo}>Account No: 50200096367063</Text>
+          <Text style={styles.bankInfo}>IFSC Code: HDFC0006356</Text>
         </View>
       </View>
 
       {/* Footer */}
       <View style={styles.footer}>
-        <Text>Thank you for your business!</Text>
-        <Text>Contact us: padmavtimarketing5554@gmail.com | +91-9116045123</Text>
-        <Text>Order ID: {order.orderId} | Status: {order.status.toUpperCase()}</Text>
+        <Text style={styles.termsTitle}>Terms & Conditions :</Text>
+        <Text style={styles.termsText}>Thank you for doing business with us.</Text>
       </View>
     </Page>
   </Document>
@@ -240,14 +408,14 @@ export const generateInvoicePDF = async (order: Order) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `invoice-${order.orderId.slice(-8)}.pdf`;
+    link.download = `sale-order-${order.orderId?.slice(-8) || 'unknown'}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-    throw error;
+  } catch (error: any) {
+    console.error('Error generating PDF:', error?.message || 'Unknown error');
+    throw new Error('Failed to generate invoice PDF. Please try again.');
   }
 };
 

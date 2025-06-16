@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { ProductsTab } from '../categoriTab/ProductsTab'
 import { CategoriesTab } from '../categoriTab/CategoriesTab'
 import { UsersTab } from '../categoriTab/UsersTab'
+import { TopCategoriesTab } from '../categoriTab/TopCategoriesTab'
 import { ImagesTab } from '../categoriTab/ImagesTab'
-import ProductOfTheDay from '../categoriTab/ProductOfTheDay'
+import ProdectOfTheDay from '../categoriTab/ProductOfTheDay'
 import Flavour from "../categoriTab/Flavour"
 import Orders from '../categoriTab/Orders'
 import { PincodesTab } from '../categoriTab/PincodesTab'
@@ -17,6 +18,7 @@ import DashboardOverview from '../../dashboard/DashboardOverview'
 import { fetchProducts } from '@/lib/product/ProductFun'
 import { fetchCategories } from '@/lib/cateogry/CategoryFun'
 import { fetchUserOrders, getOrderStats } from '@/lib/product/HandleOrder'
+import { fetchPincodes } from '@/lib/pincode/PincodeFun'
 import { 
   LayoutDashboard, 
   Package, 
@@ -31,8 +33,9 @@ import {
   Eye,
   AlertCircle,
   MapPin,
-  Percent
+  Calculator
 } from 'lucide-react'
+import { RatanaCashTab } from '../categoriTab/RatanaCashTab'
 
 interface TabItem {
   value: string
@@ -50,7 +53,8 @@ export default function AdminHome() {
       total: 0,
       pending: 0
     },
-    users: 0
+    users: 0,
+    pincodes: 0
   })
 
   useEffect(() => {
@@ -65,6 +69,9 @@ export default function AdminHome() {
         // Fetch order stats
         const orderStats = await getOrderStats()
         
+        // Fetch pincodes count
+        const pincodes = await fetchPincodes()
+        
         // Update stats state
         setStats({
           products: products.length,
@@ -73,7 +80,8 @@ export default function AdminHome() {
             total: orderStats.total,
             pending: orderStats.pending
           },
-          users: orderStats.businessOrders // Using business orders as a proxy for users
+          users: orderStats.businessOrders,
+          pincodes: pincodes.length
         })
       } catch (error) {
         console.error('Error fetching stats:', error)
@@ -114,6 +122,17 @@ export default function AdminHome() {
       badge: stats.users
     },
     {
+      value: "pincodes",
+      label: "Pincodes",
+      icon: <MapPin className="w-4 h-4" />,
+      badge: stats.pincodes
+    },
+    {
+      value: "price-multiplier",
+      label: "Price Multiplier",
+      icon: <Calculator className="w-4 h-4" />
+    },
+    {
       value: "images",
       label: "Images",
       icon: <Image className="w-4 h-4" />
@@ -129,15 +148,10 @@ export default function AdminHome() {
       icon: <Star className="w-4 h-4" />
     },
     {
-      value: "pincodes",
-      label: "Pincodes",
-      icon: <MapPin className="w-4 h-4" />
+      value: "ratana-cash",
+      label: "Ratana Cash",
+      icon: <DollarSign className="w-4 h-4" />
     },
-    {
-      value: "price-multiplier",
-      label: "Price Multiplier",
-      icon: <Percent className="w-4 h-4" />
-    }
   ]
 
   return (
@@ -167,7 +181,7 @@ export default function AdminHome() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Tab Navigation */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-2">
-            <TabsList className="grid w-full grid-cols-4 lg:grid-cols-10 gap-1 bg-transparent h-auto p-1">
+            <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10 gap-1 bg-transparent h-auto p-1">
               {tabs.map((tab) => (
                 <TabsTrigger
                   key={tab.value}
@@ -220,7 +234,12 @@ export default function AdminHome() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">Orders Management</h2>
-                  <Badge variant="outline">{stats.orders.total} Total</Badge>
+                  <div className="flex gap-2">
+                    <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                      {stats.orders.pending} Pending
+                    </Badge>
+                    <Badge variant="outline">{stats.orders.total} Total</Badge>
+                  </div>
                 </div>
                 <Orders />
               </div>
@@ -236,10 +255,34 @@ export default function AdminHome() {
               </div>
             </TabsContent>
 
+            <TabsContent value="pincodes" className="p-6 m-0">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-semibold">Pincodes Management</h2>
+                  <Badge variant="outline">{stats.pincodes} Total</Badge>
+                </div>
+                <PincodesTab />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="price-multiplier" className="p-6 m-0">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-semibold">Price Multiplier Management</h2>
+                  <Badge variant="outline" className="bg-green-50 text-green-700">
+                    <Calculator className="w-3 h-3 mr-1" />
+                    Pricing
+                  </Badge>
+                </div>
+                <PriceMultiplierTab />
+              </div>
+            </TabsContent>
+
             <TabsContent value="images" className="p-6 m-0">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">Images Management</h2>
+                  <Badge variant="outline">Media Library</Badge>
                 </div>
                 <ImagesTab />
               </div>
@@ -249,6 +292,7 @@ export default function AdminHome() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">Flavours Management</h2>
+                  <Badge variant="outline">Variants</Badge>
                 </div>
                 <Flavour />
               </div>
@@ -258,17 +302,22 @@ export default function AdminHome() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">Featured Products</h2>
+                  <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
+                    <Star className="w-3 h-3 mr-1" />
+                    Featured
+                  </Badge>
                 </div>
-                <ProductOfTheDay />
+                <ProdectOfTheDay />
               </div>
             </TabsContent>
 
-            <TabsContent value="pincodes" className="p-6 m-0">
-              <PincodesTab />
-            </TabsContent>
-
-            <TabsContent value="price-multiplier" className="p-6 m-0">
-              <PriceMultiplierTab />
+            <TabsContent value="ratana-cash" className="p-6 m-0">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-semibold">Ratana Cash Rewards</h2>
+                </div>
+                <RatanaCashTab />
+              </div>
             </TabsContent>
           </div>
         </Tabs>

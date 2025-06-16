@@ -1,8 +1,8 @@
-// src/types/ImageTypes.tsx
+// src/types/CategoryTypes.tsx
 export interface Image {
     $id: string; // Appwrite document ID
-    name: string; // Image name
-    imageUrl: string; // Image URL
-    createdAt: string; // Created at timestamp
-    updatedAt: string; // Updated at timestamp
-}
+    name: string; // Image  name
+    imageUrl: string; //  image URL
+    createdAt: Date; // Created at timestamp
+    updatedAt: Date; // Updated at timestamp
+     }

@@ -1,13 +1,27 @@
-
-
-
-
-
-
-
 import { Client, Account, Databases, Storage } from 'appwrite';
 
-export const appwriteConfig = {
+export interface AppwriteConfig {
+    endpoint: string;
+    platform: string;
+    projectId: string;
+    databaseId: string;
+    userCollectionId: string;
+    productscollectionId: string;
+    addressesCollectionId: string;
+    categoriesCollectionId: string;
+    orderItemsCollectionId: string;
+    ordersCollectionId: string;
+    reviewsCollectionId: string;
+    topCategoriesCollectionId: string;
+    cartsCollectionId: string;
+    imagesCollectionId: string;
+    productOfTheDayCollectionId: string;
+    imageBucketId: string;
+    pincodesCollectionId: string;
+    priceMultipliersCollectionId: string;
+}
+
+export const appwriteConfig: AppwriteConfig = {
     endpoint: "https://cloud.appwrite.io/v1",
     platform: "com.dude",
     projectId: "6780e3ff00052183da93",
@@ -25,7 +39,7 @@ export const appwriteConfig = {
     productOfTheDayCollectionId: "67a052e00031d601a6b5",
     imageBucketId: "679a93ca0015bbc8a2db",
     pincodesCollectionId: "pincodes",
-    priceMultipliersCollectionId: "priceMultipliers", // Add this
+    priceMultipliersCollectionId: "priceMultipliers",
 };
 
 const client = new Client();

@@ -23,7 +23,8 @@ export async function fetchProducts(): Promise<Product[]> {
       description: doc.description,
       price: doc.price / 100, // Convert from cents to main currency unit
       mrp: doc.mrp ? doc.mrp / 100 : null, // Convert from cents to main currency unit
-      discount: doc.discount, // Keep discount as percentage (don't divide by 100)
+      discount: doc.discount, // Keep discount as percentage
+      gst: doc.gst || 0, // Include GST percentage
       imageUrl: doc.imageUrl,
       stock: doc.stock,
       unit: doc.unit,
@@ -52,7 +53,8 @@ export async function addProduct(productData: any) {
         description: productData.description || '',
         price: Math.round(productData.price * 100), // Store in cents
         mrp: productData.mrp ? Math.round(productData.mrp * 100) : null, // Store in cents
-        discount: productData.discount || null, // Store as percentage (don't multiply by 100)
+        discount: productData.discount || null, // Store as percentage
+        gst: productData.gst || 0, // Store GST percentage
         imageUrl: productData.imageUrl || '',
         stock: productData.stock || 0,
         unit: productData.unit,
@@ -68,6 +70,7 @@ export async function addProduct(productData: any) {
       price: response.price / 100, // Convert back to main currency unit for frontend
       mrp: response.mrp ? response.mrp / 100 : null, // Convert back to main currency unit for frontend
       discount: response.discount, // Keep as percentage
+      gst: response.gst, // Keep as percentage
     };
   } catch (error) {
     console.error('Error adding product:', error);
@@ -86,7 +89,12 @@ export const updateProduct = async (documentId: string, productData: any): Promi
     if (productData.description !== undefined) updateData.description = productData.description;
     if (productData.price !== undefined) updateData.price = Math.round(productData.price * 100); // Store in cents
     if (productData.mrp !== undefined) updateData.mrp = productData.mrp ? Math.round(productData.mrp * 100) : null; // Store in cents
-    if (productData.discount !== undefined) updateData.discount = productData.discount; // Store as percentage (don't multiply by 100)
+    if (typeof productData.discount === 'number' && !isNaN(productData.discount)) {
+      updateData.discount = Math.max(0, Math.min(999995, Math.round(productData.discount)));
+    } else {
+      updateData.discount = 0;
+    }
+    if (productData.gst !== undefined) updateData.gst = productData.gst; // Store GST percentage
     if (productData.imageUrl !== undefined) updateData.imageUrl = productData.imageUrl;
     if (productData.stock !== undefined) updateData.stock = productData.stock;
     if (productData.unit !== undefined) updateData.unit = productData.unit;
@@ -105,11 +113,6 @@ export const updateProduct = async (documentId: string, productData: any): Promi
     return false;
   }
 };
-
-
-
-
-
 
 export async function deleteProduct(documentId: string): Promise<boolean> {
   try {

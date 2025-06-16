@@ -26,11 +26,13 @@ interface EditingProduct {
   price: number;
   mrp: number | null;
   discount: number | null;
+  gst: number;
   imageUrl: string;
   stock: number;
   unit: string;
   isFeatured: boolean;
   categoryId: string;
+  flavours: string[];
 }
 
 export function ProductsTab() {
@@ -54,10 +56,12 @@ export function ProductsTab() {
     mrp: null,
     name: "",
     price: 0,
+    gst: 0,
     productId: "",
     unit: "",
     stock: 0,
     updatedAt: "",
+    flavours: [],
   });
 
   // Create a map of categories for faster lookup
@@ -95,6 +99,22 @@ export function ProductsTab() {
       }));
     }
   }, [newProduct.mrp, newProduct.price]);
+
+  // Calculate final price with GST
+  const calculateFinalPrice = (basePrice: number, gstPercentage: number) => {
+    return basePrice + (basePrice * (gstPercentage / 100));
+  };
+
+  // Update price when GST changes
+  useEffect(() => {
+    if (newProduct.price > 0 && newProduct.gst > 0) {
+      const finalPrice = calculateFinalPrice(newProduct.price, newProduct.gst);
+      setNewProduct(prev => ({
+        ...prev,
+        price: finalPrice
+      }));
+    }
+  }, [newProduct.gst]);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -151,18 +171,24 @@ export function ProductsTab() {
     setIsAdding(true);
     try {
       const createdProduct = await addProduct({
-        ...newProduct,
-        name: newProduct.name.trim(),
         productId: newProduct.productId.trim(),
+        name: newProduct.name.trim(),
         description: newProduct.description.trim(),
+        price: Math.round(Number(newProduct.price)),
+        mrp: newProduct.mrp !== null ? Math.round(Number(newProduct.mrp)) : null,
+        discount: newProduct.discount !== null ? Math.round(Number(newProduct.discount)) : null,
+        gst: Math.round(Number(newProduct.gst)),
         imageUrl: newProduct.imageUrl.trim(),
-        discount: newProduct.discount ? Math.round(newProduct.discount) : null,
+        stock: Math.round(Number(newProduct.stock)),
+        isFeatured: !!newProduct.isFeatured,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        categoryId: newProduct.categoryId,
+        unit: newProduct.unit,
+        flavours: Array.isArray(newProduct.flavours) ? newProduct.flavours : [],
       });
 
       setProducts(prev => [...prev, createdProduct as Product]);
-      
       // Reset form
       setNewProduct({
         categoryId: "",
@@ -174,16 +200,23 @@ export function ProductsTab() {
         mrp: null,
         name: "",
         price: 0,
+        gst: 0,
         productId: "",
         unit: "",
         stock: 0,
         updatedAt: "",
+        flavours: [],
       });
-
       toast.success("Product added successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to add product:", error);
-      toast.error("Failed to add product. Please try again.");
+      if (error?.message?.includes('required')) {
+        toast.error("A required field is missing. Please check all fields and try again.");
+      } else if (error?.message?.includes('type')) {
+        toast.error("A field has the wrong type. Please check your input values.");
+      } else {
+        toast.error("Failed to add product. Please try again.");
+      }
     } finally {
       setIsAdding(false);
     }
@@ -242,11 +275,13 @@ export function ProductsTab() {
       price: product.price,
       mrp: product.mrp,
       discount: product.discount,
+      gst: product.gst,
       imageUrl: product.imageUrl || "",
       stock: product.stock,
       unit: product.unit,
       isFeatured: product.isFeatured,
       categoryId: product.categoryId,
+      flavours: product.flavours || [],
     });
 
     // Auto calculate discount for edit form
@@ -264,6 +299,19 @@ export function ProductsTab() {
         }));
       }
     }, [editData.mrp, editData.price]);
+
+    // Recalculate final price with GST when price or GST changes
+    useEffect(() => {
+      if (editData.price > 0 && editData.gst > 0) {
+        const finalPrice = Math.round(editData.price + (editData.price * (editData.gst / 100)));
+        setEditData(prev => ({ ...prev, price: finalPrice }));
+      }
+    }, [editData.gst]);
+
+    // Add a live preview of the final price (base + GST) below the price and GST inputs
+    const finalPricePreview = editData.price > 0 && editData.gst > 0
+      ? Math.round(editData.price + (editData.price * (editData.gst / 100)))
+      : editData.price;
 
     const isEditFormValid = editData.name.trim() && 
                            editData.productId.trim() && 
@@ -284,8 +332,10 @@ export function ProductsTab() {
 
       setUpdatingId(product.$id);
       try {
+        const finalPrice = Math.round(editData.price + (editData.price * (editData.gst / 100)));
         const success = await updateProduct(product.$id, {
           ...editData,
+          price: finalPrice,
           name: editData.name.trim(),
           productId: editData.productId.trim(),
           description: editData.description.trim(),
@@ -337,11 +387,13 @@ export function ProductsTab() {
                 price: product.price,
                 mrp: product.mrp,
                 discount: product.discount,
+                gst: product.gst,
                 imageUrl: product.imageUrl || "",
                 stock: product.stock,
                 unit: product.unit,
                 isFeatured: product.isFeatured,
                 categoryId: product.categoryId,
+                flavours: product.flavours || [],
               });
             }}
           >
@@ -389,18 +441,25 @@ export function ProductsTab() {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Price *</label>
+                <label className="text-sm font-medium">Price (Base) *</label>
                 <Input
                   type="number"
                   step="0.01"
                   value={editData.price || ""}
-                  onChange={(e) => setEditData(prev => ({ 
-                    ...prev, 
-                    price: parseFloat(e.target.value) || 0 
-                  }))}
+                  onChange={(e) => setEditData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
                   placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">GST (%)</label>
+                <Input
+                  type="number"
+                  step="1"
+                  value={editData.gst || ""}
+                  onChange={(e) => setEditData(prev => ({ ...prev, gst: Math.round(Number(e.target.value)) }))}
+                  placeholder="GST (%)"
                 />
               </div>
               <div className="space-y-2">
@@ -409,27 +468,14 @@ export function ProductsTab() {
                   type="number"
                   step="0.01"
                   value={editData.mrp || ""}
-                  onChange={(e) => setEditData(prev => ({ 
-                    ...prev, 
-                    mrp: parseFloat(e.target.value) || null 
-                  }))}
+                  onChange={(e) => setEditData(prev => ({ ...prev, mrp: parseFloat(e.target.value) || null }))}
                   placeholder="0.00"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Discount (%)</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={editData.discount || ""}
-                  onChange={(e) => setEditData(prev => ({ 
-                    ...prev, 
-                    discount: parseFloat(e.target.value) || null 
-                  }))}
-                  placeholder="Auto calculated"
-                  disabled
-                />
-              </div>
+            </div>
+
+            <div className="col-span-2">
+              <span className="text-sm text-muted-foreground">Final Price (with GST): <b>₹ {finalPricePreview}</b></span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -808,7 +854,7 @@ export function ProductsTab() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Price *</label>
+              <label className="text-sm font-medium">Price (Base) *</label>
               <Input
                 placeholder="0.00"
                 type="number"
@@ -817,6 +863,21 @@ export function ProductsTab() {
                 onChange={(e) => setNewProduct({
                   ...newProduct,
                   price: parseFloat(e.target.value) || 0,
+                })}
+                disabled={isAdding}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">GST (%) *</label>
+              <Input
+                placeholder="0"
+                type="number"
+                step="1"
+                value={newProduct.gst || ""}
+                onChange={(e) => setNewProduct({
+                  ...newProduct,
+                  gst: Math.round(Number(e.target.value)),
                 })}
                 disabled={isAdding}
               />
@@ -883,7 +944,7 @@ export function ProductsTab() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Category *</label>
-              <Select 
+              <Select
                 onValueChange={(value) => setNewProduct({ ...newProduct, categoryId: value })}
                 value={newProduct.categoryId}
                 disabled={isAdding || isCategoriesLoading}
@@ -919,43 +980,56 @@ export function ProductsTab() {
                 onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
                 disabled={isAdding}
               />
-            </div>
-
-            <div className="md:col-span-2 lg:col-span-3 space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <Textarea
-                placeholder="Product description"
-                value={newProduct.description}
-                onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                disabled={isAdding}
-                rows={3}
-              />
-            </div>
-
-            <div className="md:col-span-2 lg:col-span-3">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="isFeatured"
-                  checked={newProduct.isFeatured}
-                  onCheckedChange={(checked) => setNewProduct({ 
-                    ...newProduct, 
-                    isFeatured: checked as boolean 
-                  })}
-                  disabled={isAdding}
-                />
-                <label
-                  htmlFor="isFeatured"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Featured Product
-                </label>
-              </div>
+              {newProduct.imageUrl && /^https?:\/\//.test(newProduct.imageUrl) && (
+                <div className="mt-2">
+                  <img
+                    src={newProduct.imageUrl}
+                    alt="Preview"
+                    className="w-24 h-24 object-cover rounded border"
+                    onError={(e) => {
+                      e.currentTarget.src = '/assets/placeholder.png';
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
+          <div className="md:col-span-2 lg:col-span-3 space-y-2">
+            <label className="text-sm font-medium">Description</label>
+            <Textarea
+              placeholder="Product description"
+              value={newProduct.description}
+              onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+              disabled={isAdding}
+              rows={3}
+            />
+          </div>
+
+          <div className="md:col-span-2 lg:col-span-3">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="isFeatured"
+                checked={newProduct.isFeatured}
+                onCheckedChange={(checked) => setNewProduct({ 
+                  ...newProduct, 
+                  isFeatured: checked as boolean 
+                })}
+                disabled={isAdding}
+              />
+              <label
+                htmlFor="isFeatured"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Featured Product
+              </label>
+            </div>
+          </div>
+        </CardContent>
+        <div className="p-4 pt-0 flex justify-end">
           <Button 
             onClick={handleAddProduct} 
-            className="w-full mt-6"
+            className="w-full md:w-auto"
             disabled={!isFormValid || isAdding}
           >
             {isAdding ? (
@@ -970,7 +1044,7 @@ export function ProductsTab() {
               </>
             )}
           </Button>
-        </CardContent>
+        </div>
       </Card>
 
       {/* Products Display */}
@@ -997,6 +1071,8 @@ export function ProductsTab() {
                     <TableHead>Price</TableHead>
                     <TableHead className="hidden sm:table-cell">MRP</TableHead>
                     <TableHead className="hidden md:table-cell">Discount</TableHead>
+                    <TableHead className="hidden md:table-cell">GST</TableHead>
+                    <TableHead className="font-bold text-green-700">Final Price</TableHead>
                     <TableHead>Image</TableHead>
                     <TableHead className="hidden lg:table-cell">Stock</TableHead>
                     <TableHead className="hidden xl:table-cell">Unit</TableHead>
@@ -1042,6 +1118,8 @@ export function ProductsTab() {
                         <TableCell className="hidden md:table-cell">
                           {product.discount ? `${product.discount}%` : "-"}
                         </TableCell>
+                        <TableCell className="hidden md:table-cell">{product.gst ? `${product.gst}%` : '-'}</TableCell>
+                        <TableCell className="font-bold text-green-700 text-lg">₹ {Math.round(product.price + (product.price * (product.gst / 100)))}</TableCell>
                         <TableCell>
                           {imageLoadErrors.has(product.$id) ? (
                             <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">

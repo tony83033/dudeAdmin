@@ -39,9 +39,7 @@ export function PincodesTab() {
     area: "",
     city: "",
     state: "",
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    isActive: true
   });
 
   const loadPincodes = useCallback(async () => {
@@ -81,7 +79,11 @@ export function PincodesTab() {
           toast.success("Pincode updated successfully");
         }
       } else {
-        await addPincode(formData);
+        await addPincode({
+          ...formData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
         toast.success("Pincode added successfully");
       }
       setIsDialogOpen(false);
@@ -99,9 +101,7 @@ export function PincodesTab() {
       area: pincode.area,
       city: pincode.city,
       state: pincode.state,
-      isActive: pincode.isActive,
-      createdAt: pincode.createdAt,
-      updatedAt: pincode.updatedAt
+      isActive: pincode.isActive
     });
     setIsEditing(true);
     setIsDialogOpen(true);
@@ -126,9 +126,7 @@ export function PincodesTab() {
       area: "",
       city: "",
       state: "",
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      isActive: true
     });
     setIsEditing(false);
   };
