@@ -11,6 +11,8 @@ import { Query } from 'appwrite';
 import { UserDetails } from "@/types/OrderTypes";
 import toast, { Toaster } from "react-hot-toast";
 import { RefreshCw, Gift, Search } from "lucide-react";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface UserWithRatanaCash extends UserDetails {
   $id: string;
@@ -105,12 +107,16 @@ export function RatanaCashTab() {
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.phone.includes(searchTerm) ||
-    (user.retailCode && user.retailCode.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredUsers = users.filter(user => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(searchLower) ||
+      user.email.toLowerCase().includes(searchLower) ||
+      user.phone.includes(searchTerm) ||
+      (user.retailCode && user.retailCode.toLowerCase().includes(searchLower)) ||
+      (user.shopName && user.shopName.toLowerCase().includes(searchLower))
+    );
+  });
 
   const formatDate = (dateString: string) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -138,23 +144,78 @@ export function RatanaCashTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Select User</label>
-              <select
-                className="w-full p-2 border rounded-md"
+              <Select
                 value={selectedUser?.$id || ""}
-                onChange={(e) => {
-                  const user = users.find(u => u.$id === e.target.value);
+                onValueChange={(value) => {
+                  const user = users.find(u => u.$id === value);
                   setSelectedUser(user || null);
                 }}
                 disabled={isAdding || users.length === 0}
               >
-                <option value="">{users.length === 0 ? "No users found" : "Select a user"}</option>
-                {users.map((user) => (
-                  <option key={user.$id} value={user.$id}>
-                    {user.name} ({user.phone}) - Current Balance: {user.ratanaCash}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={users.length === 0 ? "No users found" : "Select a user"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <ScrollArea className="h-[300px]">
+                    {users.map((user) => (
+                      <SelectItem key={user.$id} value={user.$id}>
+                        <div className="flex flex-col gap-1">
+                          <div className="font-medium flex items-center gap-2">
+                            {user.name}
+                            {user.shopName && (
+                              <Badge variant="outline" className="ml-2">
+                                Shop: {user.shopName}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            <div>Phone: {user.phone}</div>
+                            {user.retailCode && <div>Retail Code: {user.retailCode}</div>}
+                            <div>Current Balance: {user.ratanaCash || 0}</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </ScrollArea>
+                </SelectContent>
+              </Select>
             </div>
+
+            {selectedUser && (
+              <div className="col-span-1 md:col-span-2 mt-2">
+                <Card className="bg-muted">
+                  <CardContent className="pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <h4 className="font-semibold">User Details</h4>
+                        <p className="text-sm text-muted-foreground">{selectedUser.name}</p>
+                        <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+                        <p className="text-sm text-muted-foreground">{selectedUser.phone}</p>
+                      </div>
+                      {selectedUser.shopName && (
+                        <div>
+                          <h4 className="font-semibold">Shop Details</h4>
+                          <p className="text-sm text-muted-foreground">Shop: {selectedUser.shopName}</p>
+                          {selectedUser.retailCode && (
+                            <p className="text-sm text-muted-foreground">Code: {selectedUser.retailCode}</p>
+                          )}
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-semibold">Ratana Cash</h4>
+                        <p className="text-sm text-muted-foreground">Current Balance: {selectedUser.ratanaCash || 0}</p>
+                        {rewardAmount > 0 && (
+                          <>
+                            <p className="text-sm text-muted-foreground">Adding: +{rewardAmount}</p>
+                            <p className="text-sm font-medium">New Balance: {(selectedUser.ratanaCash || 0) + rewardAmount}</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Reward Amount</label>
@@ -195,7 +256,7 @@ export function RatanaCashTab() {
         <CardHeader>
           <CardTitle>Users with Ratana Cash</CardTitle>
           <CardDescription>
-            View and manage user Ratana Cash balances
+            Search by name, email, phone, retail code, or shop name
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -203,7 +264,7 @@ export function RatanaCashTab() {
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search users..."
+                placeholder="Search by name, phone, email, retail code, or shop name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8"
