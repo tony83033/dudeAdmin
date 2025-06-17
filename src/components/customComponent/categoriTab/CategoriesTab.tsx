@@ -9,10 +9,115 @@ import { Badge } from "@/components/ui/badge"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { addCategory, fetchCategories, deleteCategory, updateCategory } from '@/lib/cateogry/CategoryFun'
+import { fetchImages } from '@/lib/Images/ImagesFun'
 import { Category } from "@/types/CategoryTypes"
+import { Image } from "@/types/ImageTypes"
 import toast, { Toaster } from 'react-hot-toast'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Trash2, Plus, Image as ImageIcon, Calendar, RefreshCw, Edit, Save } from "lucide-react"
+import { Trash2, Plus, Image as ImageIcon, Calendar, RefreshCw, Edit, Save, Search } from "lucide-react"
+import { ScrollArea } from "@/components/ui/scroll-area"
+
+// Add the ImageSelector component before the CategoriesTab component
+const ImageSelector = ({ 
+  open, 
+  onOpenChange, 
+  onSelect 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+  onSelect: (url: string) => void;
+}) => {
+  const [images, setImages] = useState<Image[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadImages = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedImages = await fetchImages();
+        setImages(fetchedImages);
+      } catch (error) {
+        console.error('Error loading images:', error);
+        toast.error('Failed to load images');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (open) {
+      loadImages();
+    }
+  }, [open]);
+
+  const filteredImages = images.filter(image => 
+    image.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Select Image</DialogTitle>
+          <DialogDescription>
+            Choose an image from your library
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 border rounded-md px-3 py-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search images..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+            />
+          </div>
+          <ScrollArea className="h-[400px] rounded-md border p-4">
+            {isLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="aspect-square rounded-md" />
+                ))}
+              </div>
+            ) : filteredImages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery ? 'No images found' : 'No images available'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {filteredImages.map((image) => (
+                  <button
+                    key={image.$id}
+                    onClick={() => {
+                      onSelect(image.imageUrl);
+                      onOpenChange(false);
+                    }}
+                    className="group relative aspect-square rounded-md overflow-hidden border hover:border-primary transition-colors"
+                  >
+                    <img
+                      src={image.imageUrl}
+                      alt={image.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/60 flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-xs text-white truncate w-full">
+                        {image.name}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export function CategoriesTab() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -22,6 +127,7 @@ export function CategoriesTab() {
   const [isAdding, setIsAdding] = useState<boolean>(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set())
+  const [isImageSelectorOpen, setIsImageSelectorOpen] = useState(false)
 
   // Form validation
   const isFormValid = categoryName.trim() && categoryImageUrl.trim()
@@ -164,6 +270,7 @@ export function CategoriesTab() {
     const [localName, setLocalName] = useState(category.name)
     const [localImageUrl, setLocalImageUrl] = useState(category.imageUrl || "")
     const [isUpdating, setIsUpdating] = useState(false)
+    const [isEditImageSelectorOpen, setIsEditImageSelectorOpen] = useState(false)
 
     const handleSave = async () => {
       if (!localName.trim() || !localImageUrl.trim()) {
@@ -251,15 +358,22 @@ export function CategoriesTab() {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="imageUrl" className="text-sm font-medium">
-                Image URL
-              </label>
-              <Input
-                id="imageUrl"
-                value={localImageUrl}
-                onChange={(e) => setLocalImageUrl(e.target.value)}
-                placeholder="Image URL"
-              />
+              <label className="text-sm font-medium">Image URL</label>
+              <div className="flex gap-2">
+                <Input
+                  value={localImageUrl}
+                  onChange={(e) => setLocalImageUrl(e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  type="button"
+                  onClick={() => setIsEditImageSelectorOpen(true)}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             {localImageUrl && isValidUrl(localImageUrl) && (
               <div className="space-y-2">
@@ -295,6 +409,11 @@ export function CategoriesTab() {
             </Button>
           </DialogFooter>
         </DialogContent>
+        <ImageSelector
+          open={isEditImageSelectorOpen}
+          onOpenChange={setIsEditImageSelectorOpen}
+          onSelect={(url) => setLocalImageUrl(url)}
+        />
       </Dialog>
     )
   }
@@ -425,13 +544,24 @@ export function CategoriesTab() {
               className="flex-1"
               disabled={isAdding}
             />
-            <Input
-              placeholder="Image URL"
-              value={categoryImageUrl}
-              onChange={(e) => setCategoryImageUrl(e.target.value)}
-              className="flex-1"
-              disabled={isAdding}
-            />
+            <div className="flex-1 flex gap-2">
+              <Input
+                placeholder="Image URL"
+                value={categoryImageUrl}
+                onChange={(e) => setCategoryImageUrl(e.target.value)}
+                className="flex-1"
+                disabled={isAdding}
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                type="button"
+                onClick={() => setIsImageSelectorOpen(true)}
+                disabled={isAdding}
+              >
+                <ImageIcon className="h-4 w-4" />
+              </Button>
+            </div>
             <Button 
               onClick={handleAddCategory}
               disabled={!isFormValid || isAdding}
@@ -452,6 +582,13 @@ export function CategoriesTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Add the ImageSelector component */}
+      <ImageSelector
+        open={isImageSelectorOpen}
+        onOpenChange={setIsImageSelectorOpen}
+        onSelect={(url) => setCategoryImageUrl(url)}
+      />
 
       {/* Categories Display */}
       <Card>

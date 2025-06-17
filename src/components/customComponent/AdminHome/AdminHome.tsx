@@ -33,7 +33,8 @@ import {
   Eye,
   AlertCircle,
   MapPin,
-  Calculator
+  Calculator,
+  ListStart
 } from 'lucide-react'
 import { RatanaCashTab } from '../categoriTab/RatanaCashTab'
 
@@ -110,6 +111,11 @@ export default function AdminHome() {
       badge: stats.categories
     },
     {
+      value: "top-categories",
+      label: "Top Categories",
+      icon: <ListStart className="w-4 h-4" />
+    },
+    {
       value: "orders",
       label: "Orders",
       icon: <ShoppingCart className="w-4 h-4" />,
@@ -178,7 +184,7 @@ export default function AdminHome() {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
           {/* Tab Navigation */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-2">
             <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10 gap-1 bg-transparent h-auto p-1">
@@ -205,7 +211,7 @@ export default function AdminHome() {
           </div>
 
           {/* Tab Content */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="mt-4">
             <TabsContent value="dashboard" className="p-6 m-0">
               <DashboardOverview />
             </TabsContent>
@@ -227,6 +233,16 @@ export default function AdminHome() {
                   <Badge variant="outline">{stats.categories} Total</Badge>
                 </div>
                 <CategoriesTab />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="top-categories" className="p-6 m-0">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-semibold">Top Categories Management</h2>
+                  <Badge variant="outline">Featured Categories</Badge>
+                </div>
+                <TopCategoriesTab />
               </div>
             </TabsContent>
 

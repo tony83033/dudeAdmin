@@ -13,10 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { fetchProducts, addProduct, fetchCategories, deleteProduct, updateProduct } from "@/lib/product/ProductFun";
+import { fetchImages } from '@/lib/Images/ImagesFun'
 import { Product } from "@/types/ProductTypes";
 import { Category } from "@/types/CategoryTypes";
+import { Image } from "@/types/ImageTypes";
 import toast, { Toaster } from "react-hot-toast";
-import { Trash2, Plus, Image as ImageIcon, Calendar, RefreshCw, Edit, Save, Package, Star, DollarSign, Percent } from "lucide-react";
+import { Trash2, Plus, Image as ImageIcon, Calendar, RefreshCw, Edit, Save, Package, Star, DollarSign, Percent, Search } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface EditingProduct {
   $id: string;
@@ -26,7 +29,7 @@ interface EditingProduct {
   price: number;
   mrp: number | null;
   discount: number | null;
-  gst: number;
+  gst: number | null;
   imageUrl: string;
   stock: number;
   unit: string;
@@ -34,6 +37,108 @@ interface EditingProduct {
   categoryId: string;
   flavours: string[];
 }
+
+// Add the ImageSelector component
+const ImageSelector = ({ 
+  open, 
+  onOpenChange, 
+  onSelect 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+  onSelect: (url: string) => void;
+}) => {
+  const [images, setImages] = useState<Image[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadImages = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedImages = await fetchImages();
+        setImages(fetchedImages);
+      } catch (error) {
+        console.error('Error loading images:', error);
+        toast.error('Failed to load images');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (open) {
+      loadImages();
+    }
+  }, [open]);
+
+  const filteredImages = images.filter(image => 
+    image.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Select Image</DialogTitle>
+          <DialogDescription>
+            Choose an image from your library
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 border rounded-md px-3 py-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search images..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+            />
+          </div>
+          <ScrollArea className="h-[400px] rounded-md border p-4">
+            {isLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="aspect-square rounded-md" />
+                ))}
+              </div>
+            ) : filteredImages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery ? 'No images found' : 'No images available'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {filteredImages.map((image) => (
+                  <button
+                    key={image.$id}
+                    onClick={() => {
+                      onSelect(image.imageUrl);
+                      onOpenChange(false);
+                    }}
+                    className="group relative aspect-square rounded-md overflow-hidden border hover:border-primary transition-colors"
+                  >
+                    <img
+                      src={image.imageUrl}
+                      alt={image.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/60 flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-xs text-white truncate w-full">
+                        {image.name}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -46,9 +151,8 @@ export function ProductsTab() {
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  const [newProduct, setNewProduct] = useState<Omit<Product, "$id" | "$collectionId" | "$databaseId" | "$createdAt" | "$updatedAt" | "$permissions">>({
+  const [newProduct, setNewProduct] = useState<Omit<EditingProduct, "$id">>({
     categoryId: "",
-    createdAt: "",
     description: "",
     discount: null,
     imageUrl: "",
@@ -56,11 +160,10 @@ export function ProductsTab() {
     mrp: null,
     name: "",
     price: 0,
-    gst: 0,
+    gst: null,
     productId: "",
     unit: "",
     stock: 0,
-    updatedAt: "",
     flavours: [],
   });
 
@@ -99,22 +202,6 @@ export function ProductsTab() {
       }));
     }
   }, [newProduct.mrp, newProduct.price]);
-
-  // Calculate final price with GST
-  const calculateFinalPrice = (basePrice: number, gstPercentage: number) => {
-    return basePrice + (basePrice * (gstPercentage / 100));
-  };
-
-  // Update price when GST changes
-  useEffect(() => {
-    if (newProduct.price > 0 && newProduct.gst > 0) {
-      const finalPrice = calculateFinalPrice(newProduct.price, newProduct.gst);
-      setNewProduct(prev => ({
-        ...prev,
-        price: finalPrice
-      }));
-    }
-  }, [newProduct.gst]);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -177,7 +264,7 @@ export function ProductsTab() {
         price: Math.round(Number(newProduct.price)),
         mrp: newProduct.mrp !== null ? Math.round(Number(newProduct.mrp)) : null,
         discount: newProduct.discount !== null ? Math.round(Number(newProduct.discount)) : null,
-        gst: Math.round(Number(newProduct.gst)),
+        gst: newProduct.gst ? Math.round(Number(newProduct.gst)) : null,
         imageUrl: newProduct.imageUrl.trim(),
         stock: Math.round(Number(newProduct.stock)),
         isFeatured: !!newProduct.isFeatured,
@@ -192,7 +279,6 @@ export function ProductsTab() {
       // Reset form
       setNewProduct({
         categoryId: "",
-        createdAt: "",
         description: "",
         discount: null,
         imageUrl: "",
@@ -200,11 +286,10 @@ export function ProductsTab() {
         mrp: null,
         name: "",
         price: 0,
-        gst: 0,
+        gst: null,
         productId: "",
         unit: "",
         stock: 0,
-        updatedAt: "",
         flavours: [],
       });
       toast.success("Product added successfully!");
@@ -264,6 +349,9 @@ export function ProductsTab() {
     }).format(price).replace('INR', 'Rs.');
   };
 
+  // Add state for image selector
+  const [isImageSelectorOpen, setIsImageSelectorOpen] = useState(false);
+
   // Edit Product Dialog Component
   const EditProductDialog = ({ product }: { product: Product }) => {
     const [open, setOpen] = useState(false);
@@ -284,6 +372,9 @@ export function ProductsTab() {
       flavours: product.flavours || [],
     });
 
+    // Add state for image selector
+    const [isEditImageSelectorOpen, setIsEditImageSelectorOpen] = useState(false);
+
     // Auto calculate discount for edit form
     useEffect(() => {
       if (editData.mrp && editData.price && editData.mrp > 0) {
@@ -299,19 +390,6 @@ export function ProductsTab() {
         }));
       }
     }, [editData.mrp, editData.price]);
-
-    // Recalculate final price with GST when price or GST changes
-    useEffect(() => {
-      if (editData.price > 0 && editData.gst > 0) {
-        const finalPrice = Math.round(editData.price + (editData.price * (editData.gst / 100)));
-        setEditData(prev => ({ ...prev, price: finalPrice }));
-      }
-    }, [editData.gst]);
-
-    // Add a live preview of the final price (base + GST) below the price and GST inputs
-    const finalPricePreview = editData.price > 0 && editData.gst > 0
-      ? Math.round(editData.price + (editData.price * (editData.gst / 100)))
-      : editData.price;
 
     const isEditFormValid = editData.name.trim() && 
                            editData.productId.trim() && 
@@ -332,14 +410,14 @@ export function ProductsTab() {
 
       setUpdatingId(product.$id);
       try {
-        const finalPrice = Math.round(editData.price + (editData.price * (editData.gst / 100)));
         const success = await updateProduct(product.$id, {
           ...editData,
-          price: finalPrice,
           name: editData.name.trim(),
           productId: editData.productId.trim(),
           description: editData.description.trim(),
           imageUrl: editData.imageUrl.trim(),
+          price: Math.round(Number(editData.price)),
+          gst: editData.gst ? Math.round(Number(editData.gst)) : null,
           discount: editData.discount ? Math.round(editData.discount) : null,
           updatedAt: new Date().toISOString(),
         });
@@ -455,11 +533,11 @@ export function ProductsTab() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">GST (%)</label>
                 <Input
+                  placeholder="0"
                   type="number"
                   step="1"
                   value={editData.gst || ""}
                   onChange={(e) => setEditData(prev => ({ ...prev, gst: Math.round(Number(e.target.value)) }))}
-                  placeholder="GST (%)"
                 />
               </div>
               <div className="space-y-2">
@@ -475,7 +553,14 @@ export function ProductsTab() {
             </div>
 
             <div className="col-span-2">
-              <span className="text-sm text-muted-foreground">Final Price (with GST): <b>₹ {finalPricePreview}</b></span>
+              <span className="text-sm text-muted-foreground">
+                Final Price: <b>₹ {editData.price}</b>
+                {editData.gst && (
+                  <span className="ml-2 text-muted-foreground">
+                    (GST: {editData.gst}%)
+                  </span>
+                )}
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -531,24 +616,33 @@ export function ProductsTab() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Image URL</label>
-              <Input
-                value={editData.imageUrl}
-                onChange={(e) => setEditData(prev => ({ ...prev, imageUrl: e.target.value }))}
-                placeholder="https://example.com/image.jpg"
-              />
-            </div>
-
-            {editData.imageUrl && isValidUrl(editData.imageUrl) && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Preview</label>
-                <img
-                  src={editData.imageUrl}
-                  alt="Preview"
-                  className="w-20 h-20 object-cover rounded-md border"
-                  onError={() => toast.error('Invalid image URL')}
+              <div className="flex gap-2">
+                <Input
+                  value={editData.imageUrl}
+                  onChange={(e) => setEditData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  placeholder="https://example.com/image.jpg"
                 />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  type="button"
+                  onClick={() => setIsEditImageSelectorOpen(true)}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
               </div>
-            )}
+              {editData.imageUrl && isValidUrl(editData.imageUrl) && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Preview</label>
+                  <img
+                    src={editData.imageUrl}
+                    alt="Preview"
+                    className="w-20 h-20 object-cover rounded-md border"
+                    onError={() => toast.error('Invalid image URL')}
+                  />
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -869,7 +963,7 @@ export function ProductsTab() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">GST (%) *</label>
+              <label className="text-sm font-medium">GST (%)</label>
               <Input
                 placeholder="0"
                 type="number"
@@ -877,7 +971,7 @@ export function ProductsTab() {
                 value={newProduct.gst || ""}
                 onChange={(e) => setNewProduct({
                   ...newProduct,
-                  gst: Math.round(Number(e.target.value)),
+                  gst: e.target.value ? Math.round(Number(e.target.value)) : null,
                 })}
                 disabled={isAdding}
               />
@@ -974,12 +1068,23 @@ export function ProductsTab() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Image URL</label>
-              <Input
-                placeholder="https://example.com/image.jpg"
-                value={newProduct.imageUrl}
-                onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
-                disabled={isAdding}
-              />
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://example.com/image.jpg"
+                  value={newProduct.imageUrl}
+                  onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
+                  disabled={isAdding}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  type="button"
+                  onClick={() => setIsImageSelectorOpen(true)}
+                  disabled={isAdding}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
+              </div>
               {newProduct.imageUrl && /^https?:\/\//.test(newProduct.imageUrl) && (
                 <div className="mt-2">
                   <img
@@ -1047,6 +1152,13 @@ export function ProductsTab() {
         </div>
       </Card>
 
+      {/* Add the ImageSelector component */}
+      <ImageSelector
+        open={isImageSelectorOpen}
+        onOpenChange={setIsImageSelectorOpen}
+        onSelect={(url) => setNewProduct({ ...newProduct, imageUrl: url })}
+      />
+
       {/* Products Display */}
       <Card>
         <CardHeader>
@@ -1072,7 +1184,6 @@ export function ProductsTab() {
                     <TableHead className="hidden sm:table-cell">MRP</TableHead>
                     <TableHead className="hidden md:table-cell">Discount</TableHead>
                     <TableHead className="hidden md:table-cell">GST</TableHead>
-                    <TableHead className="font-bold text-green-700">Final Price</TableHead>
                     <TableHead>Image</TableHead>
                     <TableHead className="hidden lg:table-cell">Stock</TableHead>
                     <TableHead className="hidden xl:table-cell">Unit</TableHead>
@@ -1118,8 +1229,9 @@ export function ProductsTab() {
                         <TableCell className="hidden md:table-cell">
                           {product.discount ? `${product.discount}%` : "-"}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">{product.gst ? `${product.gst}%` : '-'}</TableCell>
-                        <TableCell className="font-bold text-green-700 text-lg">₹ {Math.round(product.price + (product.price * (product.gst / 100)))}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {product.gst ? `${product.gst}%` : '-'}
+                        </TableCell>
                         <TableCell>
                           {imageLoadErrors.has(product.$id) ? (
                             <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">

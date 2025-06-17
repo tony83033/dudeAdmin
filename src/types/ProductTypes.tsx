@@ -20,7 +20,7 @@ export interface Product {
   price: number; // Will be converted from integer cents to decimal
   mrp: number | null;
   discount: number | null;
-  gst: number; // GST percentage
+  gst: number | null; // GST percentage (optional)
   imageUrl: string;
   stock: number;
   unit: string; // Add this field
