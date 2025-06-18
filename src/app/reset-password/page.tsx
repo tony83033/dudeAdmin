@@ -2,8 +2,9 @@
 
 import { useState, useEffect, FormEvent, ChangeEvent, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { account } from '@/lib/appwrite';
+import { account, databases, appwriteConfig } from '@/lib/appwrite';
 import { AppwriteException } from 'appwrite';
+import { Query } from 'appwrite';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -79,7 +80,29 @@ function ResetPasswordContent(): JSX.Element {
                 secret,
                 password
             );
-            
+
+            // Update the user's custom database document (set updatedAt and password)
+            try {
+                const userDocs = await databases.listDocuments(
+                    appwriteConfig.databaseId,
+                    appwriteConfig.userCollectionId,
+                    [Query.equal('userId', userId)]
+                );
+                if (userDocs.documents.length > 0) {
+                    const userDocId = userDocs.documents[0].$id;
+                    await databases.updateDocument(
+                        appwriteConfig.databaseId,
+                        appwriteConfig.userCollectionId,
+                        userDocId,
+                        { 
+                            updatedAt: new Date().toISOString(),
+                            password: password // Store plain password (not secure)
+                        }
+                    );
+                }
+            } catch (dbUpdateError) {
+                console.error('Failed to update user document after password reset:', dbUpdateError);
+            }
             setSuccess(true);
             
         } catch (error) {
