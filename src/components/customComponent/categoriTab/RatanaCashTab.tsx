@@ -10,7 +10,7 @@ import { databases, appwriteConfig } from '@/lib/appwrite';
 import { Query } from 'appwrite';
 import { UserDetails } from "@/types/OrderTypes";
 import toast, { Toaster } from "react-hot-toast";
-import { RefreshCw, Gift, Search } from "lucide-react";
+import { RefreshCw, Gift, Search, Edit, Save, X, Plus, Minus } from "lucide-react";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -25,6 +25,11 @@ export function RatanaCashTab() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserWithRatanaCash | null>(null);
   const [rewardAmount, setRewardAmount] = useState<number>(0);
+  
+  // Edit state
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState<number>(0);
+  const [isEditing, setIsEditing] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -104,6 +109,75 @@ export function RatanaCashTab() {
       }
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  // Edit Ratana Cash functions
+  const startEditing = (user: UserWithRatanaCash) => {
+    setEditingUserId(user.$id);
+    setEditAmount(user.ratanaCash || 0);
+  };
+
+  const cancelEditing = () => {
+    setEditingUserId(null);
+    setEditAmount(0);
+  };
+
+  const handleEditRatanaCash = async (userId: string, operation: 'add' | 'remove' | 'set') => {
+    if (editAmount < 0) {
+      toast.error("Amount cannot be negative");
+      return;
+    }
+
+    setIsEditing(true);
+    try {
+      const user = users.find(u => u.$id === userId);
+      if (!user) {
+        toast.error("User not found");
+        return;
+      }
+
+      let newAmount: number;
+      switch (operation) {
+        case 'add':
+          newAmount = (user.ratanaCash || 0) + editAmount;
+          break;
+        case 'remove':
+          newAmount = Math.max(0, (user.ratanaCash || 0) - editAmount);
+          break;
+        case 'set':
+          newAmount = editAmount;
+          break;
+        default:
+          newAmount = user.ratanaCash || 0;
+      }
+
+      await databases.updateDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.userCollectionId,
+        userId,
+        {
+          ratanaCash: newAmount,
+          updatedAt: new Date().toISOString(),
+        }
+      );
+
+      setUsers(users.map(u => 
+        u.$id === userId 
+          ? { ...u, ratanaCash: newAmount }
+          : u
+      ));
+
+      const operationText = operation === 'add' ? 'Added' : operation === 'remove' ? 'Removed' : 'Set';
+      toast.success(`${operationText} Ratana Cash for ${user.name}. New balance: ${newAmount}`);
+      
+      setEditingUserId(null);
+      setEditAmount(0);
+    } catch (error: any) {
+      console.error("Failed to update Ratana Cash:", error);
+      toast.error("Failed to update Ratana Cash. Please try again.");
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -281,12 +355,13 @@ export function RatanaCashTab() {
                   <TableHead>Retail Code</TableHead>
                   <TableHead>Ratana Cash</TableHead>
                   <TableHead>Last Updated</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
                         <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                         <p className="text-muted-foreground">Loading users...</p>
@@ -295,7 +370,7 @@ export function RatanaCashTab() {
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
                         <Gift className="h-8 w-8 text-muted-foreground" />
                         <p className="text-muted-foreground">No users found in the database.</p>
@@ -304,7 +379,7 @@ export function RatanaCashTab() {
                   </TableRow>
                 ) : filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2">
                         <Gift className="h-8 w-8 text-muted-foreground" />
                         <p className="text-muted-foreground">No users match your search.</p>
@@ -332,12 +407,82 @@ export function RatanaCashTab() {
                         {user.retailCode || "-"}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.ratanaCash > 0 ? "default" : "secondary"}>
-                          {user.ratanaCash}
-                        </Badge>
+                        {editingUserId === user.$id ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              value={editAmount}
+                              onChange={(e) => setEditAmount(parseInt(e.target.value) || 0)}
+                              className="w-20"
+                              disabled={isEditing}
+                            />
+                          </div>
+                        ) : (
+                          <Badge variant={user.ratanaCash > 0 ? "default" : "secondary"}>
+                            {user.ratanaCash}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatDate(user.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        {editingUserId === user.$id ? (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditRatanaCash(user.$id, 'add')}
+                              disabled={isEditing}
+                              className="h-8 w-8 p-0"
+                              title="Add amount"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditRatanaCash(user.$id, 'remove')}
+                              disabled={isEditing}
+                              className="h-8 w-8 p-0"
+                              title="Remove amount"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleEditRatanaCash(user.$id, 'set')}
+                              disabled={isEditing}
+                              className="h-8 w-8 p-0"
+                              title="Set exact amount"
+                            >
+                              <Save className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={cancelEditing}
+                              disabled={isEditing}
+                              className="h-8 w-8 p-0"
+                              title="Cancel"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => startEditing(user)}
+                            disabled={isEditing}
+                            className="h-8 w-8 p-0"
+                            title="Edit Ratana Cash"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

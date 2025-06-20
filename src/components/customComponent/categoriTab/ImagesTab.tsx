@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Trash, X, Upload, Image as ImageIcon } from "lucide-react";
+import { Copy, Trash, X, Upload, Image as ImageIcon, RefreshCw } from "lucide-react";
 import { fetchImages, deleteImage, uploadImage } from '@/lib/Images/ImagesFun';
 import { Image } from '@/types/ImageTypes'; // Import Image type
 import toast, { Toaster } from 'react-hot-toast';
@@ -21,14 +21,29 @@ export function ImagesTab() {
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isMultiUploading, setIsMultiUploading] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [imagesPerPage] = useState<number>(10);
 
   // Fetch images on mount
   useEffect(() => {
     const getImages = async () => {
       try {
+        setIsLoading(true);
+        console.log('Fetching images...');
         const fetchedImages = await fetchImages();
+        console.log('Fetched images:', fetchedImages);
+        console.log('Number of images fetched:', fetchedImages.length);
         setImages(fetchedImages);
+        
+        if (fetchedImages.length === 0) {
+          toast.error('No images found in the database');
+        } else {
+          toast.success(`Loaded ${fetchedImages.length} images`);
+        }
       } catch (error) {
+        console.error('Error fetching images:', error);
         toast.error('Failed to fetch images');
       } finally {
         setIsLoading(false);
@@ -36,6 +51,55 @@ export function ImagesTab() {
     };
     getImages();
   }, []);
+
+  // Refresh images function
+  const refreshImages = async () => {
+    try {
+      setIsLoading(true);
+      console.log('Refreshing images...');
+      const fetchedImages = await fetchImages();
+      console.log('Refreshed images:', fetchedImages);
+      console.log('Number of images after refresh:', fetchedImages.length);
+      setImages(fetchedImages);
+      setCurrentPage(1); // Reset to first page when refreshing
+      
+      if (fetchedImages.length === 0) {
+        toast.error('No images found in the database');
+      } else {
+        toast.success(`Refreshed: ${fetchedImages.length} images loaded`);
+      }
+    } catch (error) {
+      console.error('Error refreshing images:', error);
+      toast.error('Failed to refresh images');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Pagination calculations
+  const indexOfLastImage = currentPage * imagesPerPage;
+  const indexOfFirstImage = indexOfLastImage - imagesPerPage;
+  const currentImages = images.slice(indexOfFirstImage, indexOfLastImage);
+  const totalPages = Math.ceil(images.length / imagesPerPage);
+
+  // Change page
+  const paginate = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
+  // Go to next page
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Go to previous page
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   // Single file upload handlers
   const handleSingleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,7 +281,29 @@ export function ImagesTab() {
   return (
     <div>
       <Toaster position="top-right" />
-      <h2 className="text-xl font-semibold mb-4">Images</h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-semibold">Images</h2>
+          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+            {isLoading ? 'Loading...' : `${images.length} images`}
+          </span>
+          {!isLoading && images.length > 0 && (
+            <span className="text-sm text-gray-500 bg-blue-100 px-2 py-1 rounded-md">
+              Page {currentPage} of {totalPages} ({indexOfFirstImage + 1}-{Math.min(indexOfLastImage, images.length)} of {images.length})
+            </span>
+          )}
+        </div>
+        <Button
+          onClick={refreshImages}
+          disabled={isLoading}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
 
       <Tabs defaultValue="single" className="mb-6">
         <TabsList className="grid w-full grid-cols-2">
@@ -338,7 +424,7 @@ export function ImagesTab() {
           {isLoading ? (
             <TableSkeleton />
           ) : (
-            images.map((image) => (
+            currentImages.map((image) => (
               <TableRow key={image.$id}>
                 <TableCell>{image.$id}</TableCell>
                 <TableCell>{image.name}</TableCell>
@@ -347,6 +433,10 @@ export function ImagesTab() {
                     src={image.imageUrl}
                     alt={image.name}
                     className="w-10 h-10 rounded-md object-cover"
+                    onError={(e) => {
+                      console.error('Failed to load image:', image.imageUrl);
+                      e.currentTarget.src = '/assets/placeholder.png'; // Fallback image
+                    }}
                   />
                 </TableCell>
                 <TableCell>
@@ -379,6 +469,49 @@ export function ImagesTab() {
           )}
         </TableBody>
       </Table>
+
+      {/* Pagination Controls */}
+      {!isLoading && images.length > imagesPerPage && (
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-gray-500">
+            Showing {indexOfFirstImage + 1} to {Math.min(indexOfLastImage, images.length)} of {images.length} images
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={prevPage}
+              disabled={currentPage === 1}
+              variant="outline"
+              size="sm"
+            >
+              Previous
+            </Button>
+            
+            {/* Page Numbers */}
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                <Button
+                  key={pageNumber}
+                  onClick={() => paginate(pageNumber)}
+                  variant={currentPage === pageNumber ? "default" : "outline"}
+                  size="sm"
+                  className="w-8 h-8 p-0"
+                >
+                  {pageNumber}
+                </Button>
+              ))}
+            </div>
+            
+            <Button
+              onClick={nextPage}
+              disabled={currentPage === totalPages}
+              variant="outline"
+              size="sm"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

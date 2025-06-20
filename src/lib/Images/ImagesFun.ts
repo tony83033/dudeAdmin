@@ -1,6 +1,7 @@
 // src/lib/Images/ImagesFun.ts
 import { appwriteConfig, databases, storage } from "../appwrite";
 import { Image } from "@/types/ImageTypes";
+import { Query } from "appwrite";
 
 // Function to upload an image to Appwrite Storage and store metadata in the database
 export const uploadImage = async (file: File, name: string): Promise<Image> => {
@@ -45,20 +46,44 @@ export const uploadImage = async (file: File, name: string): Promise<Image> => {
 // Function to fetch images from the Appwrite database
 export const fetchImages = async (): Promise<Image[]> => {
   try {
+    console.log('Fetching images from collection:', appwriteConfig.imagesCollectionId);
+    
     const response = await databases.listDocuments(
       appwriteConfig.databaseId,
-      appwriteConfig.imagesCollectionId
+      appwriteConfig.imagesCollectionId,
+      [
+        Query.orderDesc('$createdAt'), // Sort by creation date, newest first
+        Query.limit(100) // Limit to 100 images
+      ]
     );
 
-    // Transform the response to match the Image type
-    const images: Image[] = response.documents.map((doc) => ({
-      $id: doc.$id,
-      name: doc.name,
-      imageUrl: doc.imageUrl,
-      createdAt: new Date(doc.createdAt), // Convert string to Date
-      updatedAt: new Date(doc.updatedAt), // Convert string to Date
-    }));
+    console.log('Raw response from database:', response);
+    console.log('Number of documents found:', response.documents.length);
 
+    // Transform the response to match the Image type with better error handling
+    const images: Image[] = response.documents.map((doc) => {
+      try {
+        return {
+          $id: doc.$id,
+          name: doc.name || 'Unnamed Image',
+          imageUrl: doc.imageUrl || '',
+          createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(doc.$createdAt),
+          updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(doc.$updatedAt),
+        };
+      } catch (error) {
+        console.error('Error processing image document:', doc, error);
+        // Return a fallback image object
+        return {
+          $id: doc.$id || 'unknown',
+          name: doc.name || 'Error Loading Image',
+          imageUrl: doc.imageUrl || '',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      }
+    });
+
+    console.log('Processed images:', images);
     return images;
   } catch (error) {
     console.error('Error fetching images:', error);
