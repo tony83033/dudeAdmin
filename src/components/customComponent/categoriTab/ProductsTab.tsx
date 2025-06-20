@@ -51,25 +51,45 @@ const ImageSelector = ({
   const [images, setImages] = useState<Image[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalImages, setTotalImages] = useState(0);
+
+  const imagesPerPage = 9;
+
+  const loadImages = useCallback(async (page: number) => {
+    try {
+      setIsLoading(true);
+      const data = await fetchImages({ page, limit: imagesPerPage });
+      setImages(data.images);
+      setTotalImages(data.total);
+      setTotalPages(Math.ceil(data.total / imagesPerPage));
+      setCurrentPage(page);
+    } catch (error) {
+      console.error('Error loading images:', error);
+      toast.error('Failed to load images');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const loadImages = async () => {
-      try {
-        setIsLoading(true);
-        const fetchedImages = await fetchImages();
-        setImages(fetchedImages);
-      } catch (error) {
-        console.error('Error loading images:', error);
-        toast.error('Failed to load images');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (open) {
-      loadImages();
+      loadImages(1);
     }
-  }, [open]);
+  }, [open, loadImages]);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      loadImages(currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      loadImages(currentPage - 1);
+    }
+  };
 
   const filteredImages = images.filter(image => 
     image.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -135,6 +155,19 @@ const ImageSelector = ({
             )}
           </ScrollArea>
         </div>
+        <DialogFooter className="pt-4 sm:justify-between items-center border-t mt-4">
+          <div className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages} ({totalImages} images)
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handlePrevPage} disabled={currentPage <= 1 || isLoading} variant="outline">
+              Previous
+            </Button>
+            <Button onClick={handleNextPage} disabled={currentPage >= totalPages || isLoading} variant="outline">
+              Next
+            </Button>
+          </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
