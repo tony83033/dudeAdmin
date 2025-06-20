@@ -5,4 +5,7 @@ export interface Image {
     imageUrl: string; //  image URL
     createdAt: Date; // Created at timestamp
     updatedAt: Date; // Updated at timestamp
-     }
+    originalSize?: number; // Original file size in bytes
+    compressedSize?: number; // Compressed file size in bytes
+    compressionRatio?: string; // Compression ratio as percentage
+}
