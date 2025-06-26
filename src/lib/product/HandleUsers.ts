@@ -3,12 +3,12 @@ import {databases,appwriteConfig} from "@/lib/appwrite"
 
 import {User} from "../../types/UsersTypes"
 import { ID ,Query} from 'appwrite'; 
-export async function fetchUsers(queries: Query[] = []): Promise<User[]> { // Add queries parameter
+export async function fetchUsers(): Promise<User[]> {
     try {
         const response = await databases.listDocuments(
             appwriteConfig.databaseId,
             appwriteConfig.userCollectionId,
-
+            [Query.limit(1000), Query.orderDesc('$createdAt')]
         );
 
         const users = response.documents.map((doc) => ({
@@ -24,12 +24,13 @@ export async function fetchUsers(queries: Query[] = []): Promise<User[]> { // Ad
             pincode: doc.pincode,
             createdAt: doc.$createdAt,
             updatedAt: doc.updatedAt,
+            $id: doc.$id, // Add document ID for updates
 
         }));
 
         return users;
     } catch (error) {
-        console.error('Error fetching products:', error);
+        console.error('Error fetching users:', error);
         return [];
     }
 }

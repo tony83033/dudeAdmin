@@ -1,4 +1,5 @@
 export interface User {
+    $id: string; // Appwrite document ID (needed for updates)
     userId: string; // Unique user ID from Appwrite Auth
     email: string; // User's email
     name: string; // Full name
