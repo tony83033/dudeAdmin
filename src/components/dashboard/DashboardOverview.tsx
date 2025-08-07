@@ -107,12 +107,12 @@ export default function DashboardOverview() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-xs sm:text-sm font-medium">
               Total Revenue
             </CardTitle>
             <div className="h-4 w-4 text-muted-foreground">
@@ -120,13 +120,13 @@ export default function DashboardOverview() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(stats.totalRevenue)}</div>
+            <div className="text-lg sm:text-2xl font-bold">{formatPrice(stats.totalRevenue)}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-xs sm:text-sm font-medium">
               Total Orders
             </CardTitle>
             <div className="h-4 w-4 text-muted-foreground">
@@ -134,13 +134,13 @@ export default function DashboardOverview() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalOrders}</div>
+            <div className="text-lg sm:text-2xl font-bold">{stats.totalOrders}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-xs sm:text-sm font-medium">
               Total Products
             </CardTitle>
             <div className="h-4 w-4 text-muted-foreground">
@@ -148,13 +148,13 @@ export default function DashboardOverview() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalProducts}</div>
+            <div className="text-lg sm:text-2xl font-bold">{stats.totalProducts}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-xs sm:text-sm font-medium">
               Business Orders
             </CardTitle>
             <div className="h-4 w-4 text-muted-foreground">
@@ -162,7 +162,7 @@ export default function DashboardOverview() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.businessOrders}</div>
+            <div className="text-lg sm:text-2xl font-bold">{stats.businessOrders}</div>
           </CardContent>
         </Card>
       </div>
@@ -170,13 +170,13 @@ export default function DashboardOverview() {
       {/* Order Status Overview */}
       <Card>
         <CardHeader>
-          <CardTitle>Order Status Overview</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Order Status Overview</CardTitle>
           <CardDescription>
             Current status of all orders
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full bg-yellow-500 mr-2" />
@@ -216,32 +216,49 @@ export default function DashboardOverview() {
         </CardContent>
       </Card>
 
-      {/* Average Order Value */}
+      {/* Recent Activity */}
       <Card>
         <CardHeader>
-          <CardTitle>Average Order Value</CardTitle>
+          <CardTitle className="text-lg sm:text-xl">Recent Activity</CardTitle>
           <CardDescription>
-            Mean value per order
+            Latest updates and activities
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formatPrice(stats.averageOrderValue)}</div>
-          <div className="text-sm text-gray-500">
-            Based on {stats.totalOrders} orders
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">New order received</p>
+                <p className="text-xs text-gray-500">Order #1234 has been placed</p>
+              </div>
+              <span className="text-xs text-gray-400">2 min ago</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                <Package className="w-4 h-4 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Product added</p>
+                <p className="text-xs text-gray-500">New product "Premium Widget" has been added</p>
+              </div>
+              <span className="text-xs text-gray-400">1 hour ago</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                <Users className="w-4 h-4 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">New user registered</p>
+                <p className="text-xs text-gray-500">Business user "ABC Store" has joined</p>
+              </div>
+              <span className="text-xs text-gray-400">3 hours ago</span>
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Refresh Button */}
-      <div className="flex justify-end">
-        <button
-          onClick={fetchDashboardData}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh Data
-        </button>
-      </div>
     </div>
   )
 }

@@ -206,6 +206,9 @@ export function PincodesTab() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{isEditing ? "Edit Pincode" : "Add New Pincode"}</DialogTitle>
+                <DialogDescription>
+                  {isEditing ? "Update the pincode information below." : "Add a new pincode to the system."}
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">

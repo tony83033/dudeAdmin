@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,9 +17,12 @@ import { fetchImages } from '@/lib/Images/ImagesFun'
 import { Product } from "@/types/ProductTypes";
 import { Category } from "@/types/CategoryTypes";
 import { Image } from "@/types/ImageTypes";
+import { Admin } from "@/types/AdminTypes";
+import { canEditProduct, canDeleteProduct } from "@/lib/auth/permissions";
 import toast, { Toaster } from "react-hot-toast";
-import { Trash2, Plus, Image as ImageIcon, Calendar, RefreshCw, Edit, Save, Package, Star, DollarSign, Percent, Search } from "lucide-react";
+import { Trash2, Plus, Image as ImageIcon, Calendar, RefreshCw, Edit, Save, Package, Star, DollarSign, Percent, Search, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { RetailerAvailabilityInput } from "@/components/ui/retailer-availability-input";
 
 interface EditingProduct {
   $id: string;
@@ -36,6 +39,7 @@ interface EditingProduct {
   isFeatured: boolean;
   categoryId: string;
   flavours: string[];
+  retailerAvailability: string[];
 }
 
 // Add the ImageSelector component
@@ -173,7 +177,11 @@ const ImageSelector = ({
   );
 };
 
-export function ProductsTab() {
+interface ProductsTabProps {
+  currentAdmin: Admin | null;
+}
+
+export function ProductsTab({ currentAdmin }: ProductsTabProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -183,6 +191,15 @@ export function ProductsTab() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [totalProducts, setTotalProducts] = useState(0);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const [newProduct, setNewProduct] = useState<Omit<EditingProduct, "$id">>({
     categoryId: "",
@@ -198,10 +215,11 @@ export function ProductsTab() {
     unit: "",
     stock: 0,
     flavours: [],
+    retailerAvailability: [],
   });
 
   // Create a map of categories for faster lookup
-  const categoryMap = new Map(categories.map((cat) => [cat.$id, cat.name]));
+  const categoryMap = useMemo(() => new Map(categories.map((cat) => [cat.$id, cat.name])), [categories]);
 
   // Form validation
   const isFormValid = newProduct.name.trim() && 
@@ -236,15 +254,33 @@ export function ProductsTab() {
     }
   }, [newProduct.mrp, newProduct.price]);
 
+  // Filtered and paginated products
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    
+    const query = searchQuery.toLowerCase();
+    return products.filter(product => 
+      product.name.toLowerCase().includes(query) ||
+      product.productId.toLowerCase().includes(query) ||
+      product.description?.toLowerCase().includes(query) ||
+      categoryMap.get(product.categoryId)?.toLowerCase().includes(query)
+    );
+  }, [products, searchQuery, categoryMap]);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProducts, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
   const loadProducts = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await fetchProducts();
       setProducts(data || []);
+      setTotalProducts(data?.length || 0);
       setError(null);
-      if (data?.length > 0) {
-        toast.success(`${data.length} products loaded successfully!`);
-      }
     } catch (err) {
       console.error("Failed to fetch products:", err);
       setError("Failed to fetch products. Please try again later.");
@@ -260,9 +296,6 @@ export function ProductsTab() {
       setIsCategoriesLoading(true);
       const data = await fetchCategories();
       setCategories((data || []) as unknown as Category[]);
-      if (data?.length > 0) {
-        toast.success("Categories loaded successfully!");
-      }
     } catch (error) {
       console.error("Failed to fetch categories:", error);
       toast.error("Failed to fetch categories.");
@@ -276,6 +309,33 @@ export function ProductsTab() {
     loadProducts();
     loadCategories();
   }, [loadProducts, loadCategories]);
+
+  // Handle search with debouncing
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1); // Reset to first page when searching
+    
+    // Clear existing timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // Set new timeout for debouncing
+    const timeout = setTimeout(() => {
+      // Search is handled by useMemo, no need for additional logic here
+    }, 300);
+    
+    setSearchTimeout(timeout);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
 
   const handleAddProduct = async () => {
     if (!isFormValid) {
@@ -306,9 +366,13 @@ export function ProductsTab() {
         categoryId: newProduct.categoryId,
         unit: newProduct.unit,
         flavours: Array.isArray(newProduct.flavours) ? newProduct.flavours : [],
+        retailerAvailability: Array.isArray(newProduct.retailerAvailability) ? newProduct.retailerAvailability : [],
       });
 
+      // Add to products list without refreshing the entire page
       setProducts(prev => [...prev, createdProduct as Product]);
+      setTotalProducts(prev => prev + 1);
+      
       // Reset form
       setNewProduct({
         categoryId: "",
@@ -324,6 +388,7 @@ export function ProductsTab() {
         unit: "",
         stock: 0,
         flavours: [],
+        retailerAvailability: [],
       });
       toast.success("Product added successfully!");
     } catch (error: any) {
@@ -345,7 +410,9 @@ export function ProductsTab() {
     try {
       const success = await deleteProduct(productId);
       if (success) {
-        setProducts(products.filter((product) => product.$id !== productId));
+        // Remove from products list without refreshing the entire page
+        setProducts(prev => prev.filter((product) => product.$id !== productId));
+        setTotalProducts(prev => prev - 1);
         toast.success("Product deleted successfully!");
       } else {
         toast.error("Failed to delete product.");
@@ -376,10 +443,39 @@ export function ProductsTab() {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-      currencyDisplay: 'code'
-    }).format(price).replace('INR', 'Rs.');
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
+
+  // Pagination controls
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    const startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   // Add state for image selector
@@ -387,6 +483,12 @@ export function ProductsTab() {
 
   // Edit Product Dialog Component
   const EditProductDialog = ({ product }: { product: Product }) => {
+    // Check if current admin can edit products
+    const canEdit = canEditProduct(currentAdmin);
+    
+    if (!canEdit) {
+      return null; // Don't render the edit button if no permission
+    }
     const [open, setOpen] = useState(false);
     const [editData, setEditData] = useState<EditingProduct>({
       $id: product.$id,
@@ -403,6 +505,7 @@ export function ProductsTab() {
       isFeatured: product.isFeatured,
       categoryId: product.categoryId,
       flavours: product.flavours || [],
+      retailerAvailability: product.retailerAvailability || [],
     });
 
     // Add state for image selector
@@ -452,6 +555,7 @@ export function ProductsTab() {
           price: Math.round(Number(editData.price)),
           gst: editData.gst ? Math.round(Number(editData.gst)) : null,
           discount: editData.discount ? Math.round(editData.discount) : null,
+          retailerAvailability: editData.retailerAvailability,
           updatedAt: new Date().toISOString(),
         });
 
@@ -505,6 +609,7 @@ export function ProductsTab() {
                 isFeatured: product.isFeatured,
                 categoryId: product.categoryId,
                 flavours: product.flavours || [],
+                retailerAvailability: product.retailerAvailability || [],
               });
             }}
           >
@@ -690,6 +795,15 @@ export function ProductsTab() {
                 Featured Product
               </label>
             </div>
+
+            {/* Retailer Availability */}
+            <div className="mt-4">
+              <RetailerAvailabilityInput
+                value={editData.retailerAvailability}
+                onChange={(value) => setEditData(prev => ({ ...prev, retailerAvailability: value }))}
+                disabled={updatingId === product.$id}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
@@ -771,14 +885,14 @@ export function ProductsTab() {
 
   // Mobile Card View
   const MobileCardView = () => (
-    <div className="grid gap-4 lg:hidden">
-      {products.map((product) => (
-        <Card key={product.$id} className="w-full">
+    <div className="grid gap-4 lg:hidden px-4 sm:px-6 w-full max-w-full">
+      {paginatedProducts.map((product) => (
+        <Card key={product.$id} className="w-full max-w-full overflow-hidden">
           <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-2 w-full">
               <div className="flex-1 min-w-0">
-              <CardTitle className="text-lg truncate">{product.name}</CardTitle>
-                <div className="flex items-center gap-2 mt-1">
+                <CardTitle className="text-lg truncate">{product.name}</CardTitle>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <Badge variant="secondary" className="text-xs">
                     {product.productId}
                   </Badge>
@@ -790,47 +904,49 @@ export function ProductsTab() {
                   )}
                 </div>
               </div>
-              <div className="flex gap-2 ml-2">
+              <div className="flex gap-2 ml-2 flex-shrink-0">
                 <EditProductDialog product={product} />
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      disabled={deletingId === product.$id}
-                    >
-                      {deletingId === product.$id ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Product</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete "{product.name}"? This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={() => handleDeleteProduct(product.$id)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                {canDeleteProduct(currentAdmin) && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        disabled={deletingId === product.$id}
                       >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                        {deletingId === product.$id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Product</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{product.name}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => handleDeleteProduct(product.$id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="px-4 sm:px-6 w-full">
+            <div className="space-y-4 w-full">
               {/* Image and Basic Info */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-start gap-4 w-full">
                 <div className="flex-shrink-0">
                   {imageLoadErrors.has(product.$id) ? (
                     <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
@@ -846,10 +962,10 @@ export function ProductsTab() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-muted-foreground truncate">
+                  <p className="text-sm text-muted-foreground line-clamp-2">
                     {product.description || "No description"}
                   </p>
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">
                       {categoryMap.get(product.categoryId) || "Unknown"}
                     </Badge>
@@ -861,7 +977,7 @@ export function ProductsTab() {
               </div>
 
               {/* Price Information */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                 <div className="space-y-1">
                   <div className="flex items-center gap-1">
                     <DollarSign className="h-4 w-4 text-green-600" />
@@ -892,15 +1008,41 @@ export function ProductsTab() {
               </div>
 
               {/* Stock and Dates */}
-              <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-muted-foreground w-full">
                 <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4" />
-                  <span>Stock: {product.stock}</span>
+                  <Package className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Stock: {product.stock}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>Updated: {formatDate(product.updatedAt)}</span>
+                  <Calendar className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Updated: {formatDate(product.updatedAt)}</span>
                 </div>
+              </div>
+
+              {/* Retailer Availability */}
+              <div className="space-y-2 w-full">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm font-medium">Retailer Availability</span>
+                </div>
+                {product.retailerAvailability && product.retailerAvailability.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {product.retailerAvailability.slice(0, 5).map((code) => (
+                      <Badge key={code} variant="secondary" className="text-xs px-2">
+                        {code}
+                      </Badge>
+                    ))}
+                    {product.retailerAvailability.length > 5 && (
+                      <Badge variant="secondary" className="text-xs px-2">
+                        +{product.retailerAvailability.length - 5} more
+                      </Badge>
+                    )}
+                  </div>
+                ) : (
+                  <Badge variant="outline" className="text-xs text-green-600 w-fit">
+                    Available to All Retailers
+                  </Badge>
+                )}
               </div>
             </div>
           </CardContent>
@@ -925,265 +1067,295 @@ export function ProductsTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 max-w-full overflow-hidden">
       <Toaster position="top-right" />
       
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Mobile Header */}
+      <div className="lg:hidden space-y-4 px-4 sm:px-6">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-xl font-bold tracking-tight">Products</h2>
+          <p className="text-sm text-muted-foreground">
+            Manage your product inventory
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Input
+            placeholder="Search products..."
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full"
+          />
+          <Button 
+            onClick={loadProducts} 
+            variant="outline" 
+            size="sm"
+            disabled={isLoading}
+            className="w-full"
+          >
+            {isLoading ? (
+              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Products</h2>
           <p className="text-muted-foreground">
             Manage your product inventory
           </p>
         </div>
-        <Button 
-          onClick={loadProducts} 
-          variant="outline" 
-          size="sm"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
-          )}
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Search products..."
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full sm:w-[150px] lg:w-[250px]"
+          />
+          <Button 
+            onClick={loadProducts} 
+            variant="outline" 
+            size="sm"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Add Product Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Add New Product</CardTitle>
-          <CardDescription>
-            Create a new product with all the necessary details
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Product Name *</label>
-              <Input
-                placeholder="Product name"
-                value={newProduct.name}
-                onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                disabled={isAdding}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Product Code *</label>
-              <Input
-                placeholder="Product Item Code"
-                value={newProduct.productId}
-                onChange={(e) => setNewProduct({ ...newProduct, productId: e.target.value })}
-                disabled={isAdding}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Price (Base) *</label>
-              <Input
-                placeholder="0.00"
-                type="number"
-                step="0.01"
-                value={newProduct.price || ""}
-                onChange={(e) => setNewProduct({
-                  ...newProduct,
-                  price: parseFloat(e.target.value) || 0,
-                })}
-                disabled={isAdding}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">GST (%)</label>
-              <Input
-                placeholder="0"
-                type="number"
-                step="1"
-                value={newProduct.gst || ""}
-                onChange={(e) => setNewProduct({
-                  ...newProduct,
-                  gst: e.target.value ? Math.round(Number(e.target.value)) : null,
-                })}
-                disabled={isAdding}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">MRP</label>
-              <Input
-                placeholder="0.00"
-                type="number"
-                step="0.01"
-                value={newProduct.mrp || ""}
-                onChange={(e) => setNewProduct({
-                  ...newProduct,
-                  mrp: parseFloat(e.target.value) || null,
-                })}
-                disabled={isAdding}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Discount (%)</label>
-              <Input
-                placeholder="Auto calculated"
-                type="number"
-                step="0.01"
-                value={newProduct.discount || ""}
-                disabled
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stock</label>
-              <Input
-                placeholder="0"
-                type="number"
-                value={newProduct.stock || ""}
-                onChange={(e) => setNewProduct({ 
-                  ...newProduct, 
-                  stock: parseInt(e.target.value) || 0 
-                })}
-                disabled={isAdding}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Unit *</label>
-              <Select
-                onValueChange={(value) => setNewProduct({ ...newProduct, unit: value })}
-                value={newProduct.unit}
-                disabled={isAdding}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="kg">kg</SelectItem>
-                  <SelectItem value="Pac">Pac</SelectItem>
-                  <SelectItem value="Box">Box</SelectItem>
-                  <SelectItem value="Jar">Jar</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category *</label>
-              <Select
-                onValueChange={(value) => setNewProduct({ ...newProduct, categoryId: value })}
-                value={newProduct.categoryId}
-                disabled={isAdding || isCategoriesLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {isCategoriesLoading ? (
-                    <SelectItem value="loading" disabled>
-                      Loading categories...
-                    </SelectItem>
-                  ) : categories.length === 0 ? (
-                    <SelectItem value="no-categories" disabled>
-                      No categories found
-                    </SelectItem>
-                  ) : (
-                    categories.map((category) => (
-                      <SelectItem key={category.$id} value={category.$id}>
-                        {category.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Image URL</label>
-              <div className="flex gap-2">
+      {currentAdmin?.role !== 'sales_admin' && (
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg sm:text-xl">Add New Product</CardTitle>
+            <CardDescription>
+              Create a new product with all the necessary details
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Product Name *</label>
                 <Input
-                  placeholder="https://example.com/image.jpg"
-                  value={newProduct.imageUrl}
-                  onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
+                  placeholder="Product name"
+                  value={newProduct.name}
+                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                   disabled={isAdding}
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  onClick={() => setIsImageSelectorOpen(true)}
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Product Code *</label>
+                <Input
+                  placeholder="Product Item Code"
+                  value={newProduct.productId}
+                  onChange={(e) => setNewProduct({ ...newProduct, productId: e.target.value })}
+                  disabled={isAdding}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Price (Base) *</label>
+                <Input
+                  placeholder="0.00"
+                  type="number"
+                  step="0.01"
+                  value={newProduct.price || ""}
+                  onChange={(e) => setNewProduct({
+                    ...newProduct,
+                    price: parseFloat(e.target.value) || 0,
+                  })}
+                  disabled={isAdding}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">GST (%)</label>
+                <Input
+                  placeholder="0"
+                  type="number"
+                  step="0.01"
+                  value={newProduct.gst || ""}
+                  onChange={(e) => setNewProduct({
+                    ...newProduct,
+                    gst: parseFloat(e.target.value) || 0,
+                  })}
+                  disabled={isAdding}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">MRP</label>
+                <Input
+                  placeholder="0.00"
+                  type="number"
+                  step="0.01"
+                  value={newProduct.mrp || ""}
+                  onChange={(e) => setNewProduct({
+                    ...newProduct,
+                    mrp: parseFloat(e.target.value) || null,
+                  })}
+                  disabled={isAdding}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Stock *</label>
+                <Input
+                  placeholder="0"
+                  type="number"
+                  value={newProduct.stock || ""}
+                  onChange={(e) => setNewProduct({
+                    ...newProduct,
+                    stock: parseInt(e.target.value) || 0,
+                  })}
+                  disabled={isAdding}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Unit *</label>
+                <Select
+                  onValueChange={(value) => setNewProduct({ ...newProduct, unit: value })}
+                  value={newProduct.unit}
                   disabled={isAdding}
                 >
-                  <ImageIcon className="h-4 w-4" />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="Pac">Pac</SelectItem>
+                    <SelectItem value="Box">Box</SelectItem>
+                    <SelectItem value="Jar">Jar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Category *</label>
+                <Select
+                  onValueChange={(value) => setNewProduct({ ...newProduct, categoryId: value })}
+                  value={newProduct.categoryId}
+                  disabled={isAdding || isCategoriesLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isCategoriesLoading ? (
+                      <SelectItem value="loading" disabled>
+                        Loading categories...
+                      </SelectItem>
+                    ) : categories.length === 0 ? (
+                      <SelectItem value="no-categories" disabled>
+                        No categories found
+                      </SelectItem>
+                    ) : (
+                      categories.map((category) => (
+                        <SelectItem key={category.$id} value={category.$id}>
+                          {category.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Image URL</label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://example.com/image.jpg"
+                    value={newProduct.imageUrl}
+                    onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
+                    className="flex-1"
+                    disabled={isAdding}
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    type="button"
+                    onClick={() => setIsImageSelectorOpen(true)}
+                    disabled={isAdding}
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+                {newProduct.imageUrl && /^https?:\/\//.test(newProduct.imageUrl) && (
+                  <div className="mt-2">
+                    <img
+                      src={newProduct.imageUrl}
+                      alt="Preview"
+                      className="w-24 h-24 object-cover rounded border"
+                      onError={(e) => {
+                        e.currentTarget.src = '/assets/placeholder.png';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <Textarea
+                  placeholder="Product description"
+                  value={newProduct.description}
+                  onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                  disabled={isAdding}
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isFeatured"
+                    checked={newProduct.isFeatured}
+                    onCheckedChange={(checked) => setNewProduct({ ...newProduct, isFeatured: !!checked })}
+                    disabled={isAdding}
+                  />
+                  <label htmlFor="isFeatured" className="text-sm font-medium">
+                    Featured Product
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button 
+                  onClick={handleAddProduct}
+                  disabled={!isFormValid || isAdding}
+                  className="w-full sm:w-auto"
+                >
+                  {isAdding ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Product
+                    </>
+                  )}
                 </Button>
               </div>
-              {newProduct.imageUrl && /^https?:\/\//.test(newProduct.imageUrl) && (
-                <div className="mt-2">
-                  <img
-                    src={newProduct.imageUrl}
-                    alt="Preview"
-                    className="w-24 h-24 object-cover rounded border"
-                    onError={(e) => {
-                      e.currentTarget.src = '/assets/placeholder.png';
-                    }}
-                  />
-                </div>
-              )}
             </div>
-          </div>
-
-          <div className="md:col-span-2 lg:col-span-3 space-y-2">
-            <label className="text-sm font-medium">Description</label>
-            <Textarea
-              placeholder="Product description"
-              value={newProduct.description}
-              onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-              disabled={isAdding}
-              rows={3}
-            />
-          </div>
-
-          <div className="md:col-span-2 lg:col-span-3">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isFeatured"
-                checked={newProduct.isFeatured}
-                onCheckedChange={(checked) => setNewProduct({ 
-                  ...newProduct, 
-                  isFeatured: checked as boolean 
-                })}
-                disabled={isAdding}
-              />
-              <label
-                htmlFor="isFeatured"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Featured Product
-              </label>
-            </div>
-          </div>
-        </CardContent>
-        <div className="p-4 pt-0 flex justify-end">
-          <Button 
-            onClick={handleAddProduct} 
-            className="w-full md:w-auto"
-            disabled={!isFormValid || isAdding}
-          >
-            {isAdding ? (
-              <>
-                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                Adding Product...
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
-              </>
-            )}
-          </Button>
-        </div>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add the ImageSelector component */}
       <ImageSelector
@@ -1193,15 +1365,15 @@ export function ProductsTab() {
       />
 
       {/* Products Display */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            All Products ({products.length})
+      <Card className="max-w-full overflow-hidden">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg sm:text-xl">
+            All Products ({totalProducts})
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 max-w-full overflow-hidden">
           {/* Mobile View */}
-          {!isLoading && products.length > 0 && <MobileCardView />}
+          {!isLoading && paginatedProducts.length > 0 && <MobileCardView />}
           
           {/* Desktop Table View */}
           <div className="hidden lg:block">
@@ -1222,15 +1394,16 @@ export function ProductsTab() {
                     <TableHead className="hidden xl:table-cell">Unit</TableHead>
                     <TableHead className="hidden sm:table-cell">Featured</TableHead>
                     <TableHead className="hidden md:table-cell">Category</TableHead>
+                    <TableHead className="hidden lg:table-cell">Retailers</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableSkeleton />
-                  ) : products.length === 0 ? (
+                  ) : paginatedProducts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8">
+                      <TableCell colSpan={14} className="text-center py-8">
                         <div className="flex flex-col items-center gap-2">
                           <Package className="h-8 w-8 text-muted-foreground" />
                           <p className="text-muted-foreground">No products found</p>
@@ -1239,7 +1412,7 @@ export function ProductsTab() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    products.map((product) => (
+                    paginatedProducts.map((product) => (
                       <TableRow key={product.$id}>
                         <TableCell className="hidden lg:table-cell font-mono text-sm">
                           {product.$id}
@@ -1300,41 +1473,63 @@ export function ProductsTab() {
                             {categoryMap.get(product.categoryId) || "Unknown"}
                           </Badge>
                         </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {product.retailerAvailability && product.retailerAvailability.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {product.retailerAvailability.slice(0, 3).map((code) => (
+                                <Badge key={code} variant="secondary" className="text-xs px-1">
+                                  {code}
+                                </Badge>
+                              ))}
+                              {product.retailerAvailability.length > 3 && (
+                                <Badge variant="secondary" className="text-xs px-1">
+                                  +{product.retailerAvailability.length - 3}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-green-600">
+                              All Retailers
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <EditProductDialog product={product} />
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={deletingId === product.$id}
-                                >
-                                  {deletingId === product.$id ? (
-                                    <RefreshCw className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Product</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete "{product.name}"? This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction 
-                                    onClick={() => handleDeleteProduct(product.$id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            {canDeleteProduct(currentAdmin) && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={deletingId === product.$id}
                                   >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                                    {deletingId === product.$id ? (
+                                      <RefreshCw className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Product</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete "{product.name}"? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteProduct(product.$id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1345,26 +1540,64 @@ export function ProductsTab() {
             </div>
           </div>
           
+          {/* Pagination Controls */}
+          {!isLoading && totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 py-4 border-t gap-4">
+              <div className="text-sm text-muted-foreground text-center sm:text-left">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Previous</span>
+                </Button>
+                
+                <div className="flex gap-1">
+                  {getPageNumbers().map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(page)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages}
+                >
+                  <span className="hidden sm:inline">Next</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+          
           {/* Loading state for mobile */}
           {isLoading && (
             <div className="lg:hidden space-y-4 p-4">
               {Array.from({ length: 3 }).map((_, index) => (
                 <Card key={index}>
                   <CardHeader>
-                    <div className="flex justify-between">
-                      <Skeleton className="h-6 w-[150px]" />
-                      <div className="flex gap-2">
-                        <Skeleton className="h-8 w-8" />
-                        <Skeleton className="h-8 w-8" />
-                      </div>
-                    </div>
+                    <Skeleton className="h-6 w-[150px]" />
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-16 w-16 rounded-md" />
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-12 w-12 rounded-md" />
                       <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-3 w-[120px]" />
+                        <Skeleton className="h-4 w-[100px]" />
+                        <Skeleton className="h-3 w-[80px]" />
                       </div>
                     </div>
                   </CardContent>
@@ -1374,13 +1607,18 @@ export function ProductsTab() {
           )}
 
           {/* Empty state for mobile */}
-          {!isLoading && products.length === 0 && (
+          {!isLoading && paginatedProducts.length === 0 && (
             <div className="lg:hidden p-8 text-center">
               <div className="flex flex-col items-center gap-3">
                 <Package className="h-12 w-12 text-muted-foreground" />
-                <h3 className="text-lg font-semibold">No products yet</h3>
-                <p className="text-muted-foreground text-sm max-w-[300px]">
-                  Start by adding your first product using the form above
+                <h3 className="text-lg font-semibold">
+                  {searchQuery ? 'No products found' : 'No products yet'}
+                </h3>
+                <p className="text-muted-foreground text-sm max-w-[250px]">
+                  {searchQuery 
+                    ? 'Try adjusting your search terms' 
+                    : 'Start by adding your first product above'
+                  }
                 </p>
               </div>
             </div>

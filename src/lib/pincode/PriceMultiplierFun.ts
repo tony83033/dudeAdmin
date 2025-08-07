@@ -86,14 +86,14 @@ export async function fetchActivePriceMultipliers(): Promise<PriceMultiplier[]> 
   }
 }
 
-// Get price multiplier for a specific pincode
-export async function getPriceMultiplierByPincode(pincodeId: string): Promise<PriceMultiplier | null> {
+// Get price multiplier for a specific retailer code
+export async function getPriceMultiplierByRetailerCode(retailerCode: string): Promise<PriceMultiplier | null> {
   try {
     const response = await databases.listDocuments(
       appwriteConfig.databaseId,
       appwriteConfig.priceMultipliersCollectionId,
       [
-        Query.equal("pincodeId", pincodeId),
+        Query.equal("retailerCode", retailerCode),
         Query.equal("isActive", true)
       ]
     );
@@ -104,15 +104,15 @@ export async function getPriceMultiplierByPincode(pincodeId: string): Promise<Pr
     
     return null;
   } catch (error) {
-    console.error("Error getting price multiplier by pincode:", error);
-    throw new Error("Failed to get price multiplier by pincode");
+    console.error("Error getting price multiplier by retailer code:", error);
+    throw new Error("Failed to get price multiplier by retailer code");
   }
 }
 
-// Calculate multiplied price for a pincode
-export async function calculateMultipliedPrice(basePrice: number, pincodeId: string): Promise<number> {
+// Calculate multiplied price for a retailer code
+export async function calculateMultipliedPrice(basePrice: number, retailerCode: string): Promise<number> {
   try {
-    const multiplier = await getPriceMultiplierByPincode(pincodeId);
+    const multiplier = await getPriceMultiplierByRetailerCode(retailerCode);
     
     if (multiplier) {
       return basePrice * multiplier.multiplierValue;

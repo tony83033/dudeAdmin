@@ -6,6 +6,8 @@ export interface Flavour {
 }
 
 
+
+
 // /types/ProductTypes.ts
 export interface Product {
   $id: string;
@@ -28,5 +30,7 @@ export interface Product {
   categoryId: string;
   createdAt: string;
   updatedAt: string;
+  retailerAvailability: string[]; // Array of retailer codes where product is available
+
   flavours?: string[];
 }

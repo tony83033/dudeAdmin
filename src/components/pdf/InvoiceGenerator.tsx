@@ -230,10 +230,19 @@ const styles = StyleSheet.create({
 
 const formatPrice = (price: number) => `₹ ${price.toFixed(2)}`;
 const formatDate = (dateString?: string) => {
-  if (!dateString) return new Date().toLocaleDateString('en-GB');
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return new Date().toLocaleDateString('en-GB');
-  return date.toLocaleDateString('en-GB');
+  if (!dateString) return 'Date not available';
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string in invoice:', dateString);
+      return 'Invalid date';
+    }
+    return date.toLocaleDateString('en-GB');
+  } catch (error) {
+    console.error('Error formatting date in invoice:', error, 'dateString:', dateString);
+    return 'Invalid date';
+  }
 };
 
 interface InvoiceDocumentProps {
@@ -247,7 +256,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ order }) => (
       <View style={styles.header}>
         <Image style={styles.qrTop} src={QR_CODE_PATH} />
         <Text style={styles.companyName}>Ratana ADMIN</Text>
-        <Text style={styles.companyDetails}>GSTIN : 08BYEPJ8224Q1ZT</Text>
+        
         <Text style={styles.companyDetails}>9116045123</Text>
         <Text style={styles.companyDetails}>SANGANER SHYAM VIHAR 43 Diggi Malpura Road</Text>
         <Text style={styles.companyDetails}>Jaipur</Text>
@@ -260,7 +269,9 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ order }) => (
       <View style={styles.orderInfoSection}>
         <View style={styles.orderFrom}>
           <Text style={styles.sectionLabel}>Order from:</Text>
-          <Text style={styles.customerName}>{order.userDetails?.name || 'N/A'}</Text>
+          <Text style={styles.customerName}>
+            {order.userDetails?.shopName || order.userDetails?.name || 'N/A'}
+          </Text>
           <Text style={styles.customerInfo}>{order.userDetails?.email || 'N/A'}</Text>
           <Text style={styles.customerInfo}>{order.userDetails?.phone || 'N/A'}</Text>
           <Text style={styles.customerInfo}>{order.deliveryAddress?.address || 'N/A'}</Text>
@@ -274,10 +285,10 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ order }) => (
           <Text style={styles.sectionLabel}>Order No.</Text>
           <Text style={styles.orderNumber}>{order.orderId?.slice(-2) || 'N/A'}</Text>
           <Text style={styles.orderDate}>
-            Date: {formatDate(order.createdAt)}
+            Date: {formatDate(order.$createdAt)}
           </Text>
           <Text style={styles.orderDate}>
-            Due Date: {formatDate(order.createdAt)}
+            Due Date: {formatDate(order.$createdAt)}
           </Text>
         </View>
       </View>
@@ -285,36 +296,23 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ order }) => (
       {/* Items */}
       <View style={styles.itemsContainer}>
         {order.items?.map((item, index) => {
-          // Use GST from item, fallback to 0
-          const gstPercent = typeof item.gst === 'number' ? item.gst : 0;
           const basePrice = item.price || 0;
-          const gstAmount = basePrice * (gstPercent / 100);
-          const finalUnitPrice = basePrice + gstAmount;
+          const finalUnitPrice = basePrice; // No GST added
           return (
             <View style={styles.itemCard} key={index}>
               <Text style={styles.itemName}>{(item.name || 'Untitled Item').toUpperCase()}</Text>
               <View style={styles.itemRow}>
                 <Text style={styles.itemLabel}>Quantity</Text>
                 <Text style={styles.itemLabel}>Price/Unit</Text>
-                <Text style={styles.itemLabel}>GST (SGST+CGST)</Text>
                 <Text style={styles.itemLabel}>Amount</Text>
               </View>
               <View style={styles.itemRow}>
                 <Text style={styles.itemValue}>{item.quantity || 0} Pac</Text>
                 <Text style={styles.itemValue}>{formatPrice(basePrice)}</Text>
-                <Text style={styles.itemValue}>{gstPercent ? `${gstPercent}%` : '0%'}</Text>
                 <Text style={styles.itemAmount}>
                   {formatPrice((item.quantity || 0) * finalUnitPrice)}
                 </Text>
               </View>
-              {gstPercent > 0 && (
-                <View style={styles.itemRow}>
-                  <Text style={styles.itemLabel}></Text>
-                  <Text style={styles.itemLabel}></Text>
-                  <Text style={styles.itemLabel}>GST Amt</Text>
-                  <Text style={styles.itemValue}>{formatPrice((item.quantity || 0) * gstAmount)}</Text>
-                </View>
-              )}
             </View>
           );
         }) || <Text>No items available</Text>}
@@ -331,42 +329,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ order }) => (
             )}
           </Text>
         </View>
-        {/* GST Breakdown by percent */}
-        {(() => {
-          const gstMap: { [percent: number]: number } = {};
-          order.items?.forEach(item => {
-            const gstPercent = typeof item.gst === 'number' ? item.gst : 0;
-            const basePrice = item.price || 0;
-            const gstAmount = basePrice * (gstPercent / 100) * (item.quantity || 0);
-            if (gstPercent > 0) {
-              gstMap[gstPercent] = (gstMap[gstPercent] || 0) + gstAmount;
-            }
-          });
-          const gstPercents = Object.keys(gstMap).map(Number).sort((a, b) => a - b);
-          if (gstPercents.length > 1) {
-            return gstPercents.map(percent => (
-              <View style={styles.pricingRow} key={percent}>
-                <Text style={styles.pricingLabel}>GST ({percent}% SGST+CGST)</Text>
-                <Text style={styles.pricingValue}>{formatPrice(gstMap[percent])}</Text>
-              </View>
-            ));
-          } else if (gstPercents.length === 1) {
-            const percent = gstPercents[0];
-            return (
-              <View style={styles.pricingRow}>
-                <Text style={styles.pricingLabel}>Total GST ({percent}% SGST+CGST)</Text>
-                <Text style={styles.pricingValue}>{formatPrice(gstMap[percent])}</Text>
-              </View>
-            );
-          } else {
-            return (
-              <View style={styles.pricingRow}>
-                <Text style={styles.pricingLabel}>Total GST</Text>
-                <Text style={styles.pricingValue}>{formatPrice(0)}</Text>
-              </View>
-            );
-          }
-        })()}
+
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total Amount</Text>
           <Text style={styles.totalValue}>{formatPrice(order.totalAmount || 0)}</Text>

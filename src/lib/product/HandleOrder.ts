@@ -47,22 +47,22 @@ export const fetchUserOrders = async (): Promise<Order[]> => {
         // Parse delivery address safely
         const parsedDeliveryAddress = safeParseDeliveryAddress(order.deliveryAddress);
 
-        // Always fetch full user details
+        // Fetch user details from users collection using userId
         let userDetails: UserDetails = {
-          name: order.userName || 'N/A',
-          email: order.userEmail || 'N/A',
-          phone: order.userPhone || 'N/A',
+          name: 'N/A',
+          email: 'N/A',
+          phone: 'N/A',
           shopName: null,
           address: null,
           pincode: null,
           retailCode: null,
           ratanaCash: 0,
-          createdAt: order.createdAt || order.$createdAt || '',
+          createdAt: order.$createdAt || '',
         };
 
         const fetchedUserDetails = await fetchUserDetails(order.userId);
         if (fetchedUserDetails) {
-          userDetails = { ...userDetails, ...fetchedUserDetails };
+          userDetails = fetchedUserDetails;
         }
 
         return {
@@ -115,12 +115,6 @@ export const createOrder = async (
         status: 'pending',
         paymentStatus: 'pending',
         deliveryAddress: JSON.stringify(deliveryAddress),
-        userName: userDetails.name,
-        userEmail: userDetails.email,
-        userPhone: userDetails.phone,
-        discount,
-        tax,
-        shippingCost,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
@@ -170,6 +164,104 @@ export const updateOrderStatus = async (
   } catch (error) {
     console.error('Error updating order status:', error);
     throw new Error('Failed to update order status');
+  }
+};
+
+export const updateOrderItems = async (
+  orderId: string,
+  updatedItems: OrderItem[],
+  newTotalAmount: number
+): Promise<void> => {
+  try {
+    // Format items as JSON strings (same as in createOrder)
+    const formattedItems = updatedItems.map(item => JSON.stringify(item));
+    
+    await databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.ordersCollectionId,
+      orderId,
+      {
+        items: formattedItems,
+        totalAmount: newTotalAmount,
+        updatedAt: new Date().toISOString(),
+      }
+    );
+    
+    console.log('✅ Order items updated successfully in database');
+  } catch (error) {
+    console.error('❌ Error updating order items:', error);
+    throw new Error('Failed to update order items in database');
+  }
+};
+
+export const createOrderForUser = async (
+  userId: string,
+  userDetails: UserDetails,
+  deliveryAddress: DeliveryAddress,
+  cartItems: OrderItem[],
+  discount: number = 0,
+  tax: number = 0,
+  shippingCost: number = 0,
+  createdByAdmin: string
+): Promise<string> => {
+  try {
+    console.log('Creating order for user:', userDetails.email);
+    console.log('Order details:', {
+      userId,
+      itemsCount: cartItems.length,
+      totalItems: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+      deliveryAddress: deliveryAddress.address,
+      createdByAdmin
+    });
+
+    // Calculate total amount
+    const itemsTotal = cartItems.reduce((total, item) => total + (item.quantity * item.price), 0);
+    const totalAmount = itemsTotal + tax + shippingCost - discount;
+
+    console.log('Order calculations:', {
+      itemsTotal,
+      tax,
+      shippingCost,
+      discount,
+      totalAmount
+    });
+
+    const formattedItems = cartItems.map(item => JSON.stringify(item));
+    
+    // Prepare order data with only existing schema fields
+    const orderData = {
+      userId,
+      items: formattedItems,
+      totalAmount,
+      status: 'pending',
+      paymentStatus: 'pending',
+      deliveryAddress: JSON.stringify(deliveryAddress),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    console.log('Creating order document with data:', orderData);
+
+    const orderResponse = await databases.createDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.ordersCollectionId,
+      ID.unique(),
+      orderData
+    );
+
+    console.log('✅ Order created successfully for user:', userDetails.email);
+    console.log('✅ Order ID:', orderResponse.$id);
+    return orderResponse.$id;
+  } catch (error: any) {
+    console.error('❌ Error creating order for user:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      type: error.type,
+      userId,
+      userName: userDetails.name
+    });
+    throw new Error(`Failed to create order for user: ${error.message || 'Unknown error'}`);
   }
 };
 

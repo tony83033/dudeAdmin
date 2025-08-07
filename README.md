@@ -1,5 +1,22 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Admin System
+
+This project includes a comprehensive **Role-Based Access Control (RBAC)** admin system with email-based user linking:
+
+### Features
+- **5 Admin Roles**: Super Admin, Sales Admin, Inventory Admin, Customer Admin, Finance Admin
+- **Email-Based Linking**: No password management - link existing user accounts to admin roles
+- **Dynamic UI**: Tabs and features show/hide based on admin permissions
+- **Secure Backend**: All API endpoints protected with permission validation
+
+### Quick Setup
+1. **Create your first admin**: Copy `simple-admin-setup.js` into browser console
+2. **Link existing users**: Use the admin panel to link user emails to admin roles
+3. **No conflicts**: Uses existing accounts, eliminates email/password issues
+
+See `RBAC_SETUP.md` for detailed setup instructions.
+
 ## Getting Started
 
 First, run the development server:

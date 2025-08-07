@@ -21,8 +21,12 @@ interface TopCategory extends Models.Document {
   updatedAt: string;
 }
 
+interface TopCategoryWithDetails extends TopCategory {
+  category?: Category;
+}
+
 export function TopCategoriesTab() {
-  const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
+  const [topCategories, setTopCategories] = useState<TopCategoryWithDetails[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [rank, setRank] = useState<string>('');
@@ -45,7 +49,17 @@ export function TopCategoriesTab() {
           appwriteConfig.topCategoriesCollectionId,
           [Query.orderAsc('rank')]
         );
-        setTopCategories(response.documents as TopCategory[]);
+        
+        // Map top categories with their actual category details
+        const topCategoriesWithDetails: TopCategoryWithDetails[] = (response.documents as TopCategory[]).map(topCategory => {
+          const category = allCategories.find(cat => cat.$id === topCategory.categoryDocumentId);
+          return {
+            ...topCategory,
+            category
+          };
+        });
+        
+        setTopCategories(topCategoriesWithDetails);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to fetch categories');
@@ -98,7 +112,13 @@ export function TopCategoriesTab() {
         }
       );
 
-      setTopCategories([...topCategories, response as TopCategory]);
+      // Add the new top category with category details
+      const newTopCategory: TopCategoryWithDetails = {
+        ...response as TopCategory,
+        category
+      };
+
+      setTopCategories([...topCategories, newTopCategory]);
       setSelectedCategory('');
       setRank('');
       toast.success('Top category added successfully');
@@ -131,12 +151,34 @@ export function TopCategoriesTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 max-w-full overflow-hidden">
       <Toaster position="top-right" />
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Add New Top Category</CardTitle>
+      {/* Mobile Header */}
+      <div className="lg:hidden space-y-4 px-4 sm:px-6">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-xl font-bold tracking-tight">Top Categories</h2>
+          <p className="text-sm text-muted-foreground">
+            Manage featured categories for the mobile app
+          </p>
+        </div>
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden lg:block">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Top Categories</h2>
+            <p className="text-muted-foreground">
+              Manage featured categories for the mobile app
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <Card className="max-w-full overflow-hidden">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg sm:text-xl">Add New Top Category</CardTitle>
           <CardDescription>
             Select a category and specify its rank in the featured list
           </CardDescription>
@@ -188,16 +230,16 @@ export function TopCategoriesTab() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
+      <Card className="max-w-full overflow-hidden">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg sm:text-xl">
             Featured Categories ({topCategories.length})
           </CardTitle>
           <CardDescription>
             Categories that appear in the featured section of the mobile app
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 max-w-full overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -231,32 +273,44 @@ export function TopCategoriesTab() {
                 ) : (
                   topCategories
                     .sort((a, b) => a.rank - b.rank)
-                    .map((category) => (
-                      <TableRow key={category.$id}>
-                        <TableCell className="font-medium">{category.rank}</TableCell>
-                        <TableCell>{category.name}</TableCell>
+                    .map((topCategory) => (
+                      <TableRow key={topCategory.$id}>
+                        <TableCell className="font-medium">{topCategory.rank}</TableCell>
                         <TableCell>
-                          {imageLoadErrors.has(category.$id) ? (
+                          {topCategory.category ? (
+                            <span className="font-medium truncate block max-w-[200px]">{topCategory.category.name}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Category not found</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {topCategory.category ? (
+                            imageLoadErrors.has(topCategory.category.$id) ? (
+                              <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">
+                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            ) : (
+                              <img
+                                src={topCategory.category.imageUrl || "/placeholder.svg"}
+                                alt={topCategory.category.name}
+                                className="w-10 h-10 rounded-md object-cover"
+                                onError={() => handleImageError(topCategory.category.$id)}
+                              />
+                            )
+                          ) : (
                             <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">
                               <ImageIcon className="h-5 w-5 text-muted-foreground" />
                             </div>
-                          ) : (
-                            <img
-                              src={category.imageUrl}
-                              alt={category.name}
-                              className="w-10 h-10 rounded-md object-cover"
-                              onError={() => handleImageError(category.$id)}
-                            />
                           )}
                         </TableCell>
                         <TableCell className="hidden sm:table-cell font-mono text-sm">
-                          {category.categoryDocumentId}
+                          <span className="truncate block max-w-[150px]">{topCategory.categoryDocumentId}</span>
                         </TableCell>
                         <TableCell>
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => handleDeleteTopCategory(category.$id)}
+                            onClick={() => handleDeleteTopCategory(topCategory.$id)}
                           >
                             <Trash2 className="h-4 w-4" />
                             <span className="ml-2 hidden sm:inline">Remove</span>

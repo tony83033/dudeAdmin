@@ -19,6 +19,8 @@ export interface AppwriteConfig {
     imageBucketId: string;
     pincodesCollectionId: string;
     priceMultipliersCollectionId: string;
+    retailerPricingCollectionId: string;
+    adminsCollectionId: string;
 }
 
 export const appwriteConfig: AppwriteConfig = {
@@ -40,6 +42,8 @@ export const appwriteConfig: AppwriteConfig = {
     imageBucketId: "679a93ca0015bbc8a2db",
     pincodesCollectionId: "pincodes",
     priceMultipliersCollectionId: "priceMultipliers",
+    retailerPricingCollectionId: "retailerPricing",
+    adminsCollectionId: "admins", // ⚠️ Replace with actual collection ID from Appwrite Console
 };
 
 const client = new Client();

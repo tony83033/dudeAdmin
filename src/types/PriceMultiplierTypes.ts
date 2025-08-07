@@ -5,7 +5,7 @@ export interface PriceMultiplier {
     $createdAt: string;
     $updatedAt: string;
     $permissions: string[];
-    pincodeId: string;
+    retailerCode: string;
     multiplierValue: number;
     isActive: boolean;
     createdAt: string;

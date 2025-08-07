@@ -12,10 +12,16 @@ import { addCategory, fetchCategories, deleteCategory, updateCategory } from '@/
 import { fetchImages } from '@/lib/Images/ImagesFun'
 import { Category } from "@/types/CategoryTypes"
 import { Image } from "@/types/ImageTypes"
+import { Admin } from "@/types/AdminTypes"
+import { canEditCategory, canDeleteCategory } from "@/lib/auth/permissions"
 import toast, { Toaster } from 'react-hot-toast'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Trash2, Plus, Image as ImageIcon, Calendar, RefreshCw, Edit, Save, Search } from "lucide-react"
+import { Trash2, Plus, Image as ImageIcon, Calendar, RefreshCw, Edit, Save, Search, FolderOpen } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
+
+interface CategoriesTabProps {
+  currentAdmin: Admin | null;
+}
 
 // Add the ImageSelector component before the CategoriesTab component
 const ImageSelector = ({ 
@@ -152,7 +158,7 @@ const ImageSelector = ({
   );
 };
 
-export function CategoriesTab() {
+export function CategoriesTab({ currentAdmin }: CategoriesTabProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [categoryName, setCategoryName] = useState<string>("")
   const [categoryImageUrl, setCategoryImageUrl] = useState<string>("")
@@ -226,6 +232,11 @@ export function CategoriesTab() {
   }, [getCategoryData])
 
   const handleDeleteCategory = async (categoryId: string) => {
+    if (!canDeleteCategory(currentAdmin)) {
+      toast.error('You do not have permission to delete categories')
+      return
+    }
+
     setDeletingId(categoryId)
     try {
       const success = await deleteCategory(categoryId)
@@ -299,6 +310,13 @@ export function CategoriesTab() {
 
   // Edit Category Dialog Component
   const EditCategoryDialog = ({ category }: { category: Category }) => {
+    // Check if current admin can edit categories
+    const canEdit = canEditCategory(currentAdmin);
+    
+    if (!canEdit) {
+      return null; // Don't render the edit button if no permission
+    }
+
     const [open, setOpen] = useState(false)
     const [localName, setLocalName] = useState(category.name)
     const [localImageUrl, setLocalImageUrl] = useState(category.imageUrl || "")
@@ -306,6 +324,11 @@ export function CategoriesTab() {
     const [isEditImageSelectorOpen, setIsEditImageSelectorOpen] = useState(false)
 
     const handleSave = async () => {
+      if (!canEditCategory(currentAdmin)) {
+        toast.error('You do not have permission to edit categories')
+        return
+      }
+
       if (!localName.trim() || !localImageUrl.trim()) {
         toast.error('Please fill in all fields')
         return
@@ -461,38 +484,40 @@ export function CategoriesTab() {
               <CardTitle className="text-lg">{category.name}</CardTitle>
               <div className="flex gap-2">
                 <EditCategoryDialog category={category} />
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      disabled={deletingId === category.$id}
-                    >
-                      {deletingId === category.$id ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete "{category.name}"? This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={() => handleDeleteCategory(category.$id)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                {canDeleteCategory(currentAdmin) && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        disabled={deletingId === category.$id}
                       >
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                        {deletingId === category.$id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Category</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{category.name}"? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => handleDeleteCategory(category.$id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -535,70 +560,105 @@ export function CategoriesTab() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Toaster position="top-right" />
       
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Mobile Header */}
+      <div className="lg:hidden space-y-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-xl font-bold tracking-tight">Categories</h2>
+          <p className="text-sm text-muted-foreground">
+            Manage product categories and organization
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Button 
+            onClick={() => setIsImageSelectorOpen(true)} 
+            className="w-full"
+            disabled={!canEditCategory(currentAdmin)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Category
+          </Button>
+        </div>
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Categories</h2>
           <p className="text-muted-foreground">
-            Manage your product categories
+            Manage product categories and organization
           </p>
         </div>
         <Button 
-          onClick={getCategoryData} 
-          variant="outline" 
-          size="sm"
-          disabled={isLoading}
+          onClick={() => setIsImageSelectorOpen(true)} 
+          disabled={!canEditCategory(currentAdmin)}
         >
-          {isLoading ? (
-            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
-          )}
-          Refresh
+          <Plus className="h-4 w-4 mr-2" />
+          Add Category
         </Button>
       </div>
 
-      {/* Add Category Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Add New Category</CardTitle>
-          <CardDescription>
-            Create a new category with a name and image URL
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Input
-              placeholder="Category name"
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-              className="flex-1"
-              disabled={isAdding}
-            />
-            <div className="flex-1 flex gap-2">
+      {/* Add Category Dialog */}
+      <Dialog open={isImageSelectorOpen} onOpenChange={setIsImageSelectorOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add New Category</DialogTitle>
+            <DialogDescription>
+              Create a new category for organizing products. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="name" className="text-sm font-medium">
+                Category Name
+              </label>
               <Input
-                placeholder="Image URL"
-                value={categoryImageUrl}
-                onChange={(e) => setCategoryImageUrl(e.target.value)}
-                className="flex-1"
-                disabled={isAdding}
+                id="name"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                placeholder="Category name"
               />
-              <Button
-                variant="outline"
-                size="icon"
-                type="button"
-                onClick={() => setIsImageSelectorOpen(true)}
-                disabled={isAdding}
-              >
-                <ImageIcon className="h-4 w-4" />
-              </Button>
             </div>
-            <Button 
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Image URL</label>
+              <div className="flex gap-2">
+                <Input
+                  value={categoryImageUrl}
+                  onChange={(e) => setCategoryImageUrl(e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                  className="flex-1"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  type="button"
+                  onClick={() => setIsImageSelectorOpen(true)}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            {categoryImageUrl && isValidUrl(categoryImageUrl) && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Preview</label>
+                <img
+                  src={categoryImageUrl}
+                  alt="Preview"
+                  className="w-20 h-20 object-cover rounded-md border"
+                  onError={() => toast.error('Invalid image URL')}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsImageSelectorOpen(false)}>
+              Cancel
+            </Button>
+            <Button
               onClick={handleAddCategory}
-              disabled={!isFormValid || isAdding}
-              className="sm:w-auto"
+              disabled={!categoryName.trim() || !categoryImageUrl.trim() || isAdding}
             >
               {isAdding ? (
                 <>
@@ -612,39 +672,37 @@ export function CategoriesTab() {
                 </>
               )}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Add the ImageSelector component */}
-      <ImageSelector
-        open={isImageSelectorOpen}
-        onOpenChange={setIsImageSelectorOpen}
-        onSelect={(url) => setCategoryImageUrl(url)}
-      />
+          </DialogFooter>
+        </DialogContent>
+        <ImageSelector
+          open={isImageSelectorOpen}
+          onOpenChange={setIsImageSelectorOpen}
+          onSelect={(url) => setCategoryImageUrl(url)}
+        />
+      </Dialog>
 
       {/* Categories Display */}
       <Card>
-        <CardHeader>
-          <CardTitle>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg sm:text-xl">
             All Categories ({categories.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {/* Mobile View */}
+          {/* Mobile Card View */}
           {!isLoading && categories.length > 0 && <MobileCardView />}
           
           {/* Desktop Table View */}
-          <div className="hidden sm:block">
+          <div className="hidden lg:block">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="hidden sm:table-cell">ID</TableHead>
-                    <TableHead>Name</TableHead>
                     <TableHead>Image</TableHead>
-                    <TableHead className="hidden md:table-cell">Created At</TableHead>
-                    <TableHead className="hidden lg:table-cell">Updated At</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="hidden md:table-cell">Products</TableHead>
+                    <TableHead className="hidden lg:table-cell">Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -655,7 +713,7 @@ export function CategoriesTab() {
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8">
                         <div className="flex flex-col items-center gap-2">
-                          <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                          <FolderOpen className="h-8 w-8 text-muted-foreground" />
                           <p className="text-muted-foreground">No categories found</p>
                           <p className="text-sm text-muted-foreground">Add your first category above</p>
                         </div>
@@ -663,13 +721,12 @@ export function CategoriesTab() {
                     </TableRow>
                   ) : (
                     categories.map((category) => (
-                      <TableRow key={category.categoryId}>
+                      <TableRow key={category.$id}>
                         <TableCell className="hidden sm:table-cell font-mono text-sm">
-                          {category.categoryId}
+                          {category.$id}
                         </TableCell>
-                        <TableCell className="font-medium">{category.name}</TableCell>
                         <TableCell>
-                          {imageLoadErrors.has(category.categoryId) ? (
+                          {imageLoadErrors.has(category.$id) ? (
                             <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">
                               <ImageIcon className="h-5 w-5 text-muted-foreground" />
                             </div>
@@ -678,51 +735,54 @@ export function CategoriesTab() {
                               src={category.imageUrl || "/placeholder.svg"}
                               alt={category.name}
                               className="w-10 h-10 object-cover rounded-md"
-                              onError={() => handleImageError(category.categoryId)}
+                              onError={() => handleImageError(category.$id)}
                             />
                           )}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                          {formatDate(category.createdAt)}
+                        <TableCell className="font-medium">{category.name}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <Badge variant="outline">0</Badge>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                          {formatDate(category.updatedAt)}
+                        <TableCell className="hidden lg:table-cell">
+                          {formatDate(category.createdAt)}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <EditCategoryDialog category={category} />
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={deletingId === category.$id}
-                                >
-                                  {deletingId === category.$id ? (
-                                    <RefreshCw className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete "{category.name}"? This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction 
-                                    onClick={() => handleDeleteCategory(category.$id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            {canDeleteCategory(currentAdmin) && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    disabled={deletingId === category.$id}
                                   >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                                    {deletingId === category.$id ? (
+                                      <RefreshCw className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Category</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete "{category.name}"? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteCategory(category.$id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -735,7 +795,7 @@ export function CategoriesTab() {
           
           {/* Loading state for mobile */}
           {isLoading && (
-            <div className="sm:hidden space-y-4 p-4">
+            <div className="lg:hidden space-y-4 p-4">
               {Array.from({ length: 3 }).map((_, index) => (
                 <Card key={index}>
                   <CardHeader>
@@ -757,12 +817,12 @@ export function CategoriesTab() {
 
           {/* Empty state for mobile */}
           {!isLoading && categories.length === 0 && (
-            <div className="sm:hidden p-8 text-center">
+            <div className="lg:hidden p-8 text-center">
               <div className="flex flex-col items-center gap-3">
-                <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                <FolderOpen className="h-12 w-12 text-muted-foreground" />
                 <h3 className="text-lg font-semibold">No categories yet</h3>
                 <p className="text-muted-foreground text-sm max-w-[250px]">
-                  Start by adding your first category using the form above
+                  Start by adding your first category above
                 </p>
               </div>
             </div>
@@ -770,5 +830,5 @@ export function CategoriesTab() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

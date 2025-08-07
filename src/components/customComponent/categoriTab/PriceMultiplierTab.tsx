@@ -9,49 +9,97 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { fetchPincodes } from "@/lib/pincode/PincodeFun";
+import { fetchUsers } from "@/lib/product/HandleUsers";
 import { fetchPriceMultipliers, addPriceMultiplier, deletePriceMultiplier, updatePriceMultiplier } from "@/lib/pincode/PriceMultiplierFun";
-import { Pincode } from "@/types/PincodeTypes";
+import { User } from "@/types/UsersTypes";
 import { PriceMultiplier } from "@/types/PriceMultiplierTypes";
 import toast, { Toaster } from "react-hot-toast";
-import { Calculator, Plus, RefreshCw, Trash2, MapPin, Percent } from "lucide-react";
+import { Calculator, Plus, RefreshCw, Trash2, Users, Percent } from "lucide-react";
 
 export function PriceMultiplierTab() {
-  const [pincodes, setPincodes] = useState<Pincode[]>([]);
+  const [retailers, setRetailers] = useState<User[]>([]);
   const [priceMultipliers, setPriceMultipliers] = useState<PriceMultiplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPincodesLoading, setIsPincodesLoading] = useState(true);
+  const [isRetailersLoading, setIsRetailersLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [newMultiplier, setNewMultiplier] = useState<Omit<PriceMultiplier, "$id" | "$collectionId" | "$databaseId" | "$createdAt" | "$updatedAt" | "$permissions">>({
-    pincodeId: "",
+    retailerCode: "",
     multiplierValue: 1,
     isActive: true,
     createdAt: "",
     updatedAt: "",
   });
 
-  // Create a map of pincodes for faster lookup
-  const pincodeMap = new Map(pincodes.map((pincode) => [pincode.$id, pincode]));
+  // Percentage Calculator State
+  const [percentageCalc, setPercentageCalc] = useState({
+    value1: "",
+    value2: "",
+    result: 0,
+    resultType: "percentage" as "percentage" | "multiplier"
+  });
+
+  // Create a map of retailers for faster lookup
+  const retailerMap = new Map(retailers.map((retailer) => [retailer.retailCode, retailer]));
 
   // Form validation
-  const isFormValid = newMultiplier.pincodeId && 
+  const isFormValid = newMultiplier.retailerCode && 
                      newMultiplier.multiplierValue > 0;
 
-  const loadPincodes = useCallback(async () => {
+  // Percentage Calculator Functions
+  const calculatePercentage = useCallback(() => {
+    const val1 = parseFloat(percentageCalc.value1);
+    const val2 = parseFloat(percentageCalc.value2);
+    
+    if (isNaN(val1) || isNaN(val2) || val2 === 0) {
+      setPercentageCalc(prev => ({ ...prev, result: 0 }));
+      return;
+    }
+
+    if (percentageCalc.resultType === "percentage") {
+      // Calculate what percentage val1 is of val2
+      const percentage = (val1 / val2) * 100;
+      setPercentageCalc(prev => ({ ...prev, result: percentage }));
+    } else {
+      // Calculate multiplier (val1 / val2)
+      const multiplier = val1 / val2;
+      setPercentageCalc(prev => ({ ...prev, result: multiplier }));
+    }
+  }, [percentageCalc.value1, percentageCalc.value2, percentageCalc.resultType]);
+
+  const useCalculatedValue = useCallback(() => {
+    if (percentageCalc.resultType === "percentage") {
+      // Convert percentage to multiplier
+      const multiplier = percentageCalc.result / 100;
+      setNewMultiplier(prev => ({ ...prev, multiplierValue: multiplier }));
+    } else {
+      // Use multiplier directly
+      setNewMultiplier(prev => ({ ...prev, multiplierValue: percentageCalc.result }));
+    }
+    toast.success(`Multiplier set to ${percentageCalc.resultType === "percentage" ? (percentageCalc.result / 100).toFixed(2) : percentageCalc.result.toFixed(2)}`);
+  }, [percentageCalc.result, percentageCalc.resultType]);
+
+  // Auto-calculate when values change
+  useEffect(() => {
+    calculatePercentage();
+  }, [calculatePercentage]);
+
+  const loadRetailers = useCallback(async () => {
     try {
-      setIsPincodesLoading(true);
-      const data = await fetchPincodes();
-      setPincodes(data || []);
+      setIsRetailersLoading(true);
+      const data = await fetchUsers();
+      // Filter users who have retailer codes
+      const retailerUsers = data.filter(user => user.retailCode && user.retailCode.trim() !== '');
+      setRetailers(retailerUsers || []);
     } catch (error) {
-      console.error("Failed to fetch pincodes:", error);
-      toast.error("Failed to fetch pincodes.");
-      setPincodes([]);
+      console.error("Failed to fetch retailers:", error);
+      toast.error("Failed to fetch retailers.");
+      setRetailers([]);
     } finally {
-      setIsPincodesLoading(false);
+      setIsRetailersLoading(false);
     }
   }, []);
 
@@ -75,9 +123,9 @@ export function PriceMultiplierTab() {
   }, []);
 
   useEffect(() => {
-    loadPincodes();
+    loadRetailers();
     loadPriceMultipliers();
-  }, [loadPincodes, loadPriceMultipliers]);
+  }, [loadRetailers, loadPriceMultipliers]);
 
   const handleAddMultiplier = async () => {
     if (!isFormValid) {
@@ -90,10 +138,10 @@ export function PriceMultiplierTab() {
       return;
     }
 
-    // Check if multiplier already exists for this pincode
-    const existingMultiplier = priceMultipliers.find(pm => pm.pincodeId === newMultiplier.pincodeId);
+    // Check if multiplier already exists for this retailer code
+    const existingMultiplier = priceMultipliers.find(pm => pm.retailerCode === newMultiplier.retailerCode);
     if (existingMultiplier) {
-      toast.error("Price multiplier already exists for this pincode.");
+      toast.error("Price multiplier already exists for this retailer code.");
       return;
     }
 
@@ -109,7 +157,7 @@ export function PriceMultiplierTab() {
       
       // Reset form
       setNewMultiplier({
-        pincodeId: "",
+        retailerCode: "",
         multiplierValue: 1,
         isActive: true,
         createdAt: "",
@@ -319,7 +367,7 @@ export function PriceMultiplierTab() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Price Multipliers</h2>
           <p className="text-muted-foreground">
-            Set pricing multipliers for different pincodes
+            Set pricing multipliers for different retailer codes
           </p>
         </div>
         <Button 
@@ -342,37 +390,36 @@ export function PriceMultiplierTab() {
         <CardHeader>
           <CardTitle>Add Price Multiplier</CardTitle>
           <CardDescription>
-            Set a price multiplier for a specific pincode. All product prices will be multiplied by this value for orders to this pincode.
+            Set a price multiplier for a specific retailer code. All product prices will be multiplied by this value for this retailer.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Pincode *</label>
+              <label className="text-sm font-medium">Retailer Code *</label>
               <Select
-                onValueChange={(value) => setNewMultiplier({ ...newMultiplier, pincodeId: value })}
-                value={newMultiplier.pincodeId}
-                disabled={isAdding || isPincodesLoading}
+                onValueChange={(value) => setNewMultiplier({ ...newMultiplier, retailerCode: value })}
+                value={newMultiplier.retailerCode}
+                disabled={isAdding || isRetailersLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select pincode" />
+                  <SelectValue placeholder="Select retailer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {isPincodesLoading ? (
+                  {isRetailersLoading ? (
                     <SelectItem value="loading" disabled>
-                      Loading pincodes...
+                      Loading retailers...
                     </SelectItem>
-                  ) : pincodes.length === 0 ? (
-                    <SelectItem value="no-pincodes" disabled>
-                      No pincodes found
+                  ) : retailers.length === 0 ? (
+                    <SelectItem value="no-retailers" disabled>
+                      No retailers found
                     </SelectItem>
                   ) : (
-                    pincodes
-                      .filter(pincode => pincode.isActive)
-                      .filter(pincode => !priceMultipliers.some(pm => pm.pincodeId === pincode.$id))
-                      .map((pincode) => (
-                        <SelectItem key={pincode.$id} value={pincode.$id}>
-                          {pincode.pincode} - {pincode.area}, {pincode.city}
+                    retailers
+                      .filter(retailer => !priceMultipliers.some(pm => pm.retailerCode === retailer.retailCode))
+                      .map((retailer) => (
+                        <SelectItem key={retailer.$id} value={retailer.retailCode}>
+                          {retailer.retailCode} - {retailer.name} ({retailer.shopName})
                         </SelectItem>
                       ))
                   )}
@@ -398,7 +445,112 @@ export function PriceMultiplierTab() {
                 Example: 1.5 = 150% of original price
               </p>
             </div>
+          </div>
 
+          {/* Percentage Calculator */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="h-4 w-4" />
+                Percentage Calculator
+              </CardTitle>
+              <CardDescription>
+                Calculate multiplier from two values or percentage
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Value 1</label>
+                  <Input
+                    placeholder="100"
+                    type="number"
+                    step="0.01"
+                    value={percentageCalc.value1}
+                    onChange={(e) => setPercentageCalc(prev => ({ ...prev, value1: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    New price or numerator
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Value 2</label>
+                  <Input
+                    placeholder="80"
+                    type="number"
+                    step="0.01"
+                    value={percentageCalc.value2}
+                    onChange={(e) => setPercentageCalc(prev => ({ ...prev, value2: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Original price or denominator
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Calculate</label>
+                  <Select
+                    value={percentageCalc.resultType}
+                    onValueChange={(value: "percentage" | "multiplier") => 
+                      setPercentageCalc(prev => ({ ...prev, resultType: value }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="percentage">Percentage</SelectItem>
+                      <SelectItem value="multiplier">Multiplier</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Result type
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Result</label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={
+                        percentageCalc.resultType === "percentage" 
+                          ? `${percentageCalc.result.toFixed(2)}%`
+                          : percentageCalc.result.toFixed(4)
+                      }
+                      readOnly
+                      className="bg-muted"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={useCalculatedValue}
+                      disabled={percentageCalc.result === 0}
+                      className="whitespace-nowrap"
+                    >
+                      Use Value
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {percentageCalc.resultType === "percentage" ? "Percentage of Value 1 to Value 2" : "Multiplier (Value 1 ÷ Value 2)"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Examples */}
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                <p className="text-sm font-medium mb-2">Examples:</p>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>• New Price ₹120, Original ₹100 → 120% or 1.2x multiplier</li>
+                  <li>• New Price ₹80, Original ₹100 → 80% or 0.8x multiplier</li>
+                  <li>• For 25% increase: Value 1 = 125, Value 2 = 100 → 1.25x multiplier</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             <div className="space-y-2">
               <label className="text-sm font-medium">Actions</label>
               <Button 
@@ -436,8 +588,8 @@ export function PriceMultiplierTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
-                  <TableHead>Pincode</TableHead>
-                  <TableHead>Location</TableHead>
+                  <TableHead>Retailer Code</TableHead>
+                  <TableHead>Retailer Info</TableHead>
                   <TableHead>Multiplier</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Updated</TableHead>
@@ -459,17 +611,17 @@ export function PriceMultiplierTab() {
                   </TableRow>
                 ) : (
                   priceMultipliers.map((multiplier) => {
-                    const pincode = pincodeMap.get(multiplier.pincodeId);
+                    const retailer = retailerMap.get(multiplier.retailerCode);
                     return (
                       <TableRow key={multiplier.$id}>
                         <TableCell className="font-mono text-sm">
                           {multiplier.$id}
                         </TableCell>
                         <TableCell className="font-semibold">
-                          {pincode ? pincode.pincode : "Unknown"}
+                          {multiplier.retailerCode}
                         </TableCell>
                         <TableCell>
-                          {pincode ? `${pincode.area}, ${pincode.city}, ${pincode.state}` : "Unknown Location"}
+                          {retailer ? `${retailer.name} - ${retailer.shopName}` : "Retailer not found"}
                         </TableCell>
                         <TableCell>
                           <InlineEdit multiplier={multiplier} />
@@ -515,7 +667,7 @@ export function PriceMultiplierTab() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Delete Price Multiplier</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Are you sure you want to delete the price multiplier for pincode "{pincode?.pincode}"? This will reset pricing to default for this area.
+                                    Are you sure you want to delete the price multiplier for retailer "{multiplier.retailerCode}"? This will reset pricing to default for this retailer.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
