@@ -4,8 +4,6 @@ import AdminHome from "@/components/customComponent/AdminHome/AdminHome";
 export const dynamic = 'force-dynamic';
 
 export default function Admin() {
-    return (
-<AdminHome/>
-    );
-  }
+    return <AdminHome />;
+}
   

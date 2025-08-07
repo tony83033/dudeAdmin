@@ -1600,7 +1600,7 @@ const EditOrderItemsModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto sm:max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Edit className="w-5 h-5 text-blue-600" />
@@ -1611,14 +1611,14 @@ const EditOrderItemsModal = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 pb-4">
           <div className="bg-gray-50 p-3 rounded-lg">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
                 <p className="font-medium">Customer: {selectedOrder.userDetails?.name || 'N/A'}</p>
                 <p className="text-sm text-gray-600">Order Date: {formatOrderDate(selectedOrder.$createdAt)}</p>
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <p className="text-sm text-gray-600">Total Items</p>
                 <p className="font-bold text-lg">{editItemsData.length}</p>
               </div>
@@ -1629,11 +1629,11 @@ const EditOrderItemsModal = ({
             {editItemsData.map((item, index) => (
               <Card key={index} className="relative">
                 <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row items-start gap-4">
                     <img
                       src={item.imageUrl}
                       alt={item.name}
-                      className="w-16 h-16 rounded-lg object-cover"
+                      className="w-16 h-16 rounded-lg object-cover shrink-0"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         if (target.src !== '/assets/placeholder.png') {
@@ -1642,7 +1642,7 @@ const EditOrderItemsModal = ({
                       }}
                     />
                     
-                    <div className="flex-1">
+                    <div className="flex-1 w-full">
                       {editingItem?.index === index ? (
                         // Edit Mode
                         <div className="space-y-3">
@@ -1654,7 +1654,7 @@ const EditOrderItemsModal = ({
                             })}
                             placeholder="Product name"
                           />
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div>
                               <label className="text-xs text-gray-500 block mb-1">Quantity</label>
                               <Input
@@ -1684,12 +1684,12 @@ const EditOrderItemsModal = ({
                           
                           {/* Live Item Total Preview */}
                           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                                 <span className="text-sm font-medium text-blue-800">Live Preview</span>
                               </div>
-                              <div className="text-right">
+                              <div className="text-left sm:text-right">
                                 <p className="text-lg font-bold text-blue-900">
                                   {formatPrice((editingItem.item.quantity || 0) * (editingItem.item.price || 0))}
                                 </p>
@@ -1699,12 +1699,12 @@ const EditOrderItemsModal = ({
                               </div>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={handleSaveEdit}>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <Button size="sm" onClick={handleSaveEdit} className="w-full sm:w-auto">
                               <Save className="w-4 h-4 mr-1" />
                               Save
                             </Button>
-                            <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                            <Button size="sm" variant="outline" onClick={handleCancelEdit} className="w-full sm:w-auto">
                               <X className="w-4 h-4 mr-1" />
                               Cancel
                             </Button>
@@ -1713,11 +1713,11 @@ const EditOrderItemsModal = ({
                       ) : (
                         // View Mode
                         <>
-                          <div className="flex items-start justify-between">
-                            <div>
+                          <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
+                            <div className="flex-1">
                               <h3 className="font-medium">{item.name}</h3>
                               <p className="text-sm text-gray-500">Product ID: {item.productId}</p>
-                              <div className="flex items-center gap-4 mt-1">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-1">
                                 <span className="text-sm">Qty: <span className="font-medium">{item.quantity}</span></span>
                                 <span className="text-sm">Price: <span className="font-medium">{formatPrice(item.price)}</span></span>
                                 <span className="text-sm font-medium text-green-600">
@@ -1726,11 +1726,12 @@ const EditOrderItemsModal = ({
                               </div>
                             </div>
                             
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 w-full sm:w-auto">
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleStartEdit(index, item)}
+                                className="flex-1 sm:flex-none"
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
@@ -1739,7 +1740,7 @@ const EditOrderItemsModal = ({
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleDeleteItem(index)}
-                                  className="text-red-600 hover:text-red-700"
+                                  className="text-red-600 hover:text-red-700 flex-1 sm:flex-none"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
@@ -1758,7 +1759,7 @@ const EditOrderItemsModal = ({
           {/* Order Summary */}
           <Card className="bg-green-50 border-green-200">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <div>
                   <p className="font-medium text-green-800">Updated Order Total</p>
                   <p className="text-sm text-green-600">{editItemsData.length} item(s)</p>
@@ -1793,7 +1794,7 @@ const EditOrderItemsModal = ({
                     return null;
                   })()}
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right">
                   <p className="text-2xl font-bold text-green-800">
                     {formatPrice(editItemsData.reduce((total, item) => total + (item.quantity * item.price), 0))}
                   </p>
@@ -1806,11 +1807,11 @@ const EditOrderItemsModal = ({
           </Card>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onClose}>
+        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t sticky bottom-0 bg-background">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
             Cancel
           </Button>
-          <Button onClick={onSaveAll} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={onSaveAll} className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
             <Save className="w-4 h-4 mr-2" />
             Save All Changes
           </Button>

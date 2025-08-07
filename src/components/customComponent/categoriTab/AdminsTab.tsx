@@ -370,8 +370,8 @@ export function AdminsTab({ currentAdmin }: AdminsTabProps) {
                   Link User to Admin
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
-                                <DialogHeader>
+              <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto sm:max-h-[80vh]">
+                <DialogHeader>
                   <DialogTitle>Link User to Admin Role</DialogTitle>
                   <DialogDescription>
                     Connect an existing user account to an admin role. The user must already have an account.
@@ -386,7 +386,7 @@ export function AdminsTab({ currentAdmin }: AdminsTabProps) {
                     </div>
                   </div>
                 </div>
-                <form onSubmit={handleCreateAdmin} className="space-y-4">
+                <form onSubmit={handleCreateAdmin} className="space-y-4 pb-4">
                   <div>
                     <Label htmlFor="email">User Email</Label>
                     <Input
@@ -463,12 +463,12 @@ export function AdminsTab({ currentAdmin }: AdminsTabProps) {
                     </div>
                   </div>
                   
-                  <div className="flex gap-2 pt-4">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t sticky bottom-0 bg-background">
                     <Button type="submit" className="flex-1">
                       <Link className="w-4 h-4 mr-2" />
                       Link to Admin Role
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                    <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)} className="flex-1 sm:flex-none">
                       Cancel
                     </Button>
                   </div>

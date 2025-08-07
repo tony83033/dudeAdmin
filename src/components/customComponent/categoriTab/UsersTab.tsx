@@ -44,7 +44,9 @@ import {
   Package,
   ChevronLeft,
   ChevronRight,
-  Navigation
+  Navigation,
+  Camera,
+  Image
  } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -151,8 +153,30 @@ export function UsersTab({ currentAdmin }: UsersTabProps) {
     // Look for 6-digit patterns in the address
     const pincodeMatch = addressString.match(/\b\d{6}\b/g);
     if (pincodeMatch && pincodeMatch.length > 0) {
-      return validatePincode(pincodeMatch[0]);
+      const extractedPincode = validatePincode(pincodeMatch[0]);
+      console.log('📍 Extracted pincode from address string:', { original: pincodeMatch[0], validated: extractedPincode });
+      return extractedPincode;
     }
+    
+    // Also try to look for pincode patterns with spaces or dashes
+    const pincodePatterns = [
+      /\b\d{3}\s?\d{3}\b/g,  // 123 456 or 123456
+      /\b\d{2}\s?\d{2}\s?\d{2}\b/g,  // 12 34 56 or 123456
+    ];
+    
+    for (const pattern of pincodePatterns) {
+      const matches = addressString.match(pattern);
+      if (matches && matches.length > 0) {
+        const cleanPincode = matches[0].replace(/\s/g, '');
+        const validatedPincode = validatePincode(cleanPincode);
+        if (validatedPincode) {
+          console.log('📍 Extracted pincode with pattern:', { pattern: pattern.source, original: matches[0], validated: validatedPincode });
+          return validatedPincode;
+        }
+      }
+    }
+    
+    console.log('📍 No pincode found in address string:', addressString);
     return '';
   };
 
@@ -356,11 +380,14 @@ export function UsersTab({ currentAdmin }: UsersTabProps) {
         // If no pincode found in the structured data, try to extract from address string
         if (!cleanPincode && fullAddress) {
           cleanPincode = extractPincodeFromAddress(fullAddress);
+          console.log('📍 Extracted pincode from address:', cleanPincode);
         }
         
         // Additional validation: Check if the address seems complete
         const addressParts = cleanAddress.split(',').filter(part => part.trim().length > 0);
         const hasEnoughInfo = addressParts.length >= 2; // At least city and state
+        
+        console.log('📍 Setting form data:', { address: cleanAddress, pincode: cleanPincode });
         
         setCreateUserForm(prev => ({
           ...prev,
@@ -1545,7 +1572,7 @@ export function UsersTab({ currentAdmin }: UsersTabProps) {
 
     {/* Create User Modal */}
     <Dialog open={isCreateUserModalOpen} onOpenChange={setIsCreateUserModalOpen}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-blue-600" />
@@ -1561,7 +1588,7 @@ export function UsersTab({ currentAdmin }: UsersTabProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleCreateUser} className="space-y-4">
+        <form onSubmit={handleCreateUser} className="space-y-4 pb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Full Name *</label>
@@ -1619,19 +1646,20 @@ export function UsersTab({ currentAdmin }: UsersTabProps) {
 
           <div>
             <label className="block text-sm font-medium mb-1">Address *</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Input
                 value={createUserForm.address}
                 onChange={(e) => setCreateUserForm({...createUserForm, address: e.target.value})}
                 placeholder="Enter full address"
                 required
+                className="flex-1"
               />
               <Button
                 type="button"
                 variant="outline"
                 onClick={fetchCurrentLocation}
                 disabled={isFetchingLocation}
-                className="shrink-0"
+                className="shrink-0 w-full sm:w-auto"
                 title="Fetch current location and auto-fill address"
               >
                 {isFetchingLocation ? (
@@ -1639,6 +1667,7 @@ export function UsersTab({ currentAdmin }: UsersTabProps) {
                 ) : (
                   <Navigation className="w-4 h-4" />
                 )}
+                <span className="ml-2 hidden sm:inline">Fetch Location</span>
               </Button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
@@ -1665,11 +1694,11 @@ export function UsersTab({ currentAdmin }: UsersTabProps) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => setIsCreateUserModalOpen(false)}>
+          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t sticky bottom-0 bg-background">
+            <Button type="button" variant="outline" onClick={() => setIsCreateUserModalOpen(false)} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" className="w-full sm:w-auto">
               <UserPlus className="w-4 h-4 mr-2" />
               Create User
             </Button>

@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { ProductsTab } from '../categoriTab/ProductsTab'
 import { CategoriesTab } from '../categoriTab/CategoriesTab'
 import { UsersTab } from '../categoriTab/UsersTab'
@@ -62,6 +62,8 @@ export default function AdminHome() {
   const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null)
   const [accessibleTabs, setAccessibleTabs] = useState<string[]>(['dashboard'])
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({
     products: 0,
     categories: 0,
@@ -75,53 +77,93 @@ export default function AdminHome() {
 
   useEffect(() => {
     const fetchStats = async () => {
+      setIsLoading(true)
+      setError(null)
+      
       try {
         // Fetch current admin
         const currentUser = await getCurrentUser()
         if (currentUser) {
-          const admin = await getAdminById(currentUser.$id)
-          setCurrentAdmin(admin)
-          
-          // Set accessible tabs based on admin role and permissions
-          const tabs = getAccessibleTabs(admin)
-          setAccessibleTabs(tabs)
-          
-          // If current active tab is not accessible, switch to dashboard
-          if (!tabs.includes(activeTab)) {
+          try {
+            const admin = await getAdminById(currentUser.$id)
+            setCurrentAdmin(admin)
+            
+            // Set accessible tabs based on admin role and permissions
+            if (admin) {
+              const tabs = getAccessibleTabs(admin)
+              setAccessibleTabs(tabs)
+              
+              // If current active tab is not accessible, switch to dashboard
+              if (!tabs.includes(activeTab)) {
+                setActiveTab('dashboard')
+              }
+            } else {
+              // If no admin found, set default tabs
+              setAccessibleTabs(['dashboard'])
+              setActiveTab('dashboard')
+            }
+          } catch (adminError) {
+            console.error('Error fetching admin:', adminError)
+            // Set default tabs if admin fetch fails
+            setAccessibleTabs(['dashboard'])
             setActiveTab('dashboard')
           }
+        } else {
+          // If no current user, set default tabs
+          setAccessibleTabs(['dashboard'])
+          setActiveTab('dashboard')
         }
         
         // Fetch products count
-        const products = await fetchProducts()
+        try {
+          const products = await fetchProducts()
+          setStats(prev => ({ ...prev, products: products.length }))
+        } catch (error) {
+          console.error('Error fetching products:', error)
+        }
         
         // Fetch categories count  
-        const categories = await fetchCategories()  
+        try {
+          const categories = await fetchCategories()
+          setStats(prev => ({ ...prev, categories: categories.length }))
+        } catch (error) {
+          console.error('Error fetching categories:', error)
+        }
           
         // Fetch order stats  
-        const orderStats = await getOrderStats()  
+        try {
+          const orderStats = await getOrderStats()
+          setStats(prev => ({ 
+            ...prev, 
+            orders: {  
+              total: orderStats.total,  
+              pending: orderStats.pending  
+            },  
+            users: orderStats.businessOrders
+          }))
+        } catch (error) {
+          console.error('Error fetching order stats:', error)
+        }
           
         // Fetch pincodes count  
-        const pincodes = await fetchPincodes()  
-          
-        // Update stats state  
-        setStats({  
-          products: products.length,  
-          categories: categories.length,  
-          orders: {  
-            total: orderStats.total,  
-            pending: orderStats.pending  
-          },  
-          users: orderStats.businessOrders,  
-          pincodes: pincodes.length  
-        })  
-      } catch (error) {  
-        console.error('Error fetching stats:', error)  
-      }  
-    }  
+        try {
+          const pincodes = await fetchPincodes()
+          setStats(prev => ({ ...prev, pincodes: pincodes.length }))
+        } catch (error) {
+          console.error('Error fetching pincodes:', error)
+        }
+      } catch (error) {
+        console.error('Error in fetchStats:', error)
+        setError('Failed to load admin data. Please refresh the page.')
+        // Set default values if everything fails
+        setAccessibleTabs(['dashboard'])
+        setActiveTab('dashboard')
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
     fetchStats()
-
   }, [])
 
   // Update accessible tabs when current admin changes
@@ -214,6 +256,43 @@ export default function AdminHome() {
   // Filter tabs based on accessibility
   const tabs = allTabs.filter(tab => accessibleTabs.includes(tab.value))
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading admin dashboard...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <p className="font-medium">Error Loading Dashboard</p>
+                <p className="text-sm">{error}</p>
+              </div>
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Refresh Page
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Show loading if we don't have admin info yet
   if (!currentAdmin) {
     return (
@@ -237,52 +316,54 @@ export default function AdminHome() {
         <div className="lg:hidden mb-4">
           <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-center gap-3">
-              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-                <SheetTrigger asChild>
+              <Dialog open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="lg:hidden">
                     <Menu className="w-4 h-4" />
                   </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0">
-                  <div className="p-4 border-b">
-                    <h2 className="text-lg font-semibold">Admin Panel</h2>
-                    <p className="text-sm text-gray-600">Navigation Menu</p>
-                  </div>
-                  <div className="p-2">
-                    <div className="space-y-1">
-                      {tabs.map((tab) => (
-                        <button
-                          key={tab.value}
-                          onClick={() => {
-                            setActiveTab(tab.value)
-                            setIsMobileMenuOpen(false)
-                          }}
-                          className={`flex items-center gap-3 p-3 text-sm font-medium rounded-lg transition-all duration-200 w-full text-left ${
-                            activeTab === tab.value
-                              ? 'bg-blue-500 text-white shadow-md'
-                              : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          {tab.icon}
-                          <span className="truncate">{tab.label}</span>
-                          {tab.badge && (
-                            <Badge
-                              variant="secondary"
-                              className={`ml-auto h-5 w-auto min-w-[20px] text-xs px-1.5 ${
-                                activeTab === tab.value
-                                  ? 'bg-blue-200 text-blue-700'
-                                  : 'bg-blue-100 text-blue-700'
-                              }`}
-                            >
-                              {tab.badge}
-                            </Badge>
-                          )}
-                        </button>
-                      ))}
+                </DialogTrigger>
+                <DialogContent className="w-[280px] sm:w-[320px] p-0 max-w-none">
+                  <div>
+                    <div className="p-4 border-b">
+                      <h2 className="text-lg font-semibold">Admin Panel</h2>
+                      <p className="text-sm text-gray-600">Navigation Menu</p>
+                    </div>
+                    <div className="p-2">
+                      <div className="space-y-1">
+                        {tabs.map((tab) => (
+                          <button
+                            key={tab.value}
+                            onClick={() => {
+                              setActiveTab(tab.value)
+                              setIsMobileMenuOpen(false)
+                            }}
+                            className={`flex items-center gap-3 p-3 text-sm font-medium rounded-lg transition-all duration-200 w-full text-left ${
+                              activeTab === tab.value
+                                ? 'bg-blue-500 text-white shadow-md'
+                                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {tab.icon}
+                            <span className="truncate">{tab.label}</span>
+                            {tab.badge && (
+                              <Badge
+                                variant="secondary"
+                                className={`ml-auto h-5 w-auto min-w-[20px] text-xs px-1.5 ${
+                                  activeTab === tab.value
+                                    ? 'bg-blue-200 text-blue-700'
+                                    : 'bg-blue-100 text-blue-700'
+                                }`}
+                              >
+                                {tab.badge}
+                              </Badge>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </SheetContent>
-              </Sheet>
+                </DialogContent>
+              </Dialog>
               <div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Admin Dashboard

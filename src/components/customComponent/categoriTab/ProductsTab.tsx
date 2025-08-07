@@ -621,15 +621,15 @@ export function ProductsTab({ currentAdmin }: ProductsTabProps) {
             )}
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto sm:max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
             <DialogDescription>
               Make changes to the product. Click save when you're done.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 py-4 pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Product Name *</label>
                 <Input
@@ -658,7 +658,7 @@ export function ProductsTab({ currentAdmin }: ProductsTabProps) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Price (Base) *</label>
                 <Input
@@ -702,7 +702,7 @@ export function ProductsTab({ currentAdmin }: ProductsTabProps) {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Stock</label>
                 <Input
@@ -755,17 +755,19 @@ export function ProductsTab({ currentAdmin }: ProductsTabProps) {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Image URL</label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   value={editData.imageUrl}
                   onChange={(e) => setEditData(prev => ({ ...prev, imageUrl: e.target.value }))}
                   placeholder="https://example.com/image.jpg"
+                  className="flex-1"
                 />
                 <Button
                   variant="outline"
                   size="icon"
                   type="button"
                   onClick={() => setIsEditImageSelectorOpen(true)}
+                  className="shrink-0 w-full sm:w-auto"
                 >
                   <ImageIcon className="h-4 w-4" />
                 </Button>
@@ -806,13 +808,14 @@ export function ProductsTab({ currentAdmin }: ProductsTabProps) {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+          <DialogFooter className="sticky bottom-0 bg-background border-t pt-4">
+            <Button variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto">
               Cancel
             </Button>
             <Button
               onClick={handleSave}
               disabled={!isEditFormValid || updatingId === product.$id}
+              className="w-full sm:w-auto"
             >
               {updatingId === product.$id ? (
                 <>
@@ -909,7 +912,7 @@ export function ProductsTab({ currentAdmin }: ProductsTabProps) {
                 <EditProductDialog product={product} />
                 {canDeleteProduct(currentAdmin) && (
                   <AlertDialog>
-                    <AlertDialogTrigger asChild>
+                    <AlertDialogTrigger>
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -1499,7 +1502,7 @@ export function ProductsTab({ currentAdmin }: ProductsTabProps) {
                             <EditProductDialog product={product} />
                             {canDeleteProduct(currentAdmin) && (
                               <AlertDialog>
-                                <AlertDialogTrigger asChild>
+                                <AlertDialogTrigger>
                                   <Button
                                     variant="outline"
                                     size="sm"
