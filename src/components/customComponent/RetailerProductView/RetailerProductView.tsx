@@ -42,7 +42,7 @@ export default function RetailerProductView() {
         setFilteredProducts(availableProducts)
 
         if (availableProducts.length === 0) {
-          toast.info(`No products are currently available for retailer ${userInfo.retailCode}`)
+          toast(`No products are currently available for retailer ${userInfo.retailCode}`)
         } else {
           toast.success(`Loaded ${availableProducts.length} products available to you`)
         }

@@ -310,18 +310,18 @@ export function CategoriesTab({ currentAdmin }: CategoriesTabProps) {
 
   // Edit Category Dialog Component
   const EditCategoryDialog = ({ category }: { category: Category }) => {
+    const [open, setOpen] = useState(false)
+    const [localName, setLocalName] = useState(category.name)
+    const [localImageUrl, setLocalImageUrl] = useState(category.imageUrl || "")
+    const [isUpdating, setIsUpdating] = useState(false)
+    const [isEditImageSelectorOpen, setIsEditImageSelectorOpen] = useState(false)
+
     // Check if current admin can edit categories
     const canEdit = canEditCategory(currentAdmin);
     
     if (!canEdit) {
       return null; // Don't render the edit button if no permission
     }
-
-    const [open, setOpen] = useState(false)
-    const [localName, setLocalName] = useState(category.name)
-    const [localImageUrl, setLocalImageUrl] = useState(category.imageUrl || "")
-    const [isUpdating, setIsUpdating] = useState(false)
-    const [isEditImageSelectorOpen, setIsEditImageSelectorOpen] = useState(false)
 
     const handleSave = async () => {
       if (!canEditCategory(currentAdmin)) {

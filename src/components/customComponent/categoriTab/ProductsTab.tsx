@@ -483,12 +483,6 @@ export function ProductsTab({ currentAdmin }: ProductsTabProps) {
 
   // Edit Product Dialog Component
   const EditProductDialog = ({ product }: { product: Product }) => {
-    // Check if current admin can edit products
-    const canEdit = canEditProduct(currentAdmin);
-    
-    if (!canEdit) {
-      return null; // Don't render the edit button if no permission
-    }
     const [open, setOpen] = useState(false);
     const [editData, setEditData] = useState<EditingProduct>({
       $id: product.$id,
@@ -526,6 +520,13 @@ export function ProductsTab({ currentAdmin }: ProductsTabProps) {
         }));
       }
     }, [editData.mrp, editData.price]);
+
+    // Check if current admin can edit products
+    const canEdit = canEditProduct(currentAdmin);
+    
+    if (!canEdit) {
+      return null; // Don't render the edit button if no permission
+    }
 
     const isEditFormValid = editData.name.trim() && 
                            editData.productId.trim() && 

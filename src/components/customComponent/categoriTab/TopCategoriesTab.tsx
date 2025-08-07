@@ -294,7 +294,7 @@ export function TopCategoriesTab() {
                                 src={topCategory.category.imageUrl || "/placeholder.svg"}
                                 alt={topCategory.category.name}
                                 className="w-10 h-10 rounded-md object-cover"
-                                onError={() => handleImageError(topCategory.category.$id)}
+                                onError={() => handleImageError(topCategory.category?.$id || '')}
                               />
                             )
                           ) : (
