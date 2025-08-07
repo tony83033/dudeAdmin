@@ -1042,6 +1042,17 @@ export function UsersTab({ currentAdmin }: UsersTabProps) {
             <Eye className="w-4 h-4 mr-2" />
             View Details
           </Button>
+          {canCreateOrdersForUsers(currentAdmin) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePlaceOrderForUser(user)}
+              className="flex-1 text-blue-600 hover:text-blue-700"
+            >
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Place Order
+            </Button>
+          )}
         </div>
 
         {/* Timestamps */}
